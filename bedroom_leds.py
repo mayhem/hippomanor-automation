@@ -12,6 +12,7 @@ import config
 LED_PIN = 2
 OUTPUT_PIN = 4
 NUM_LEDS = 144 
+WHITE = (77, 52, 25) # consumes about 1.08A @5V for each strip
 
 SERVER = "10.1.1.2"
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
@@ -23,7 +24,7 @@ pin = machine.Pin(OUTPUT_PIN, machine.Pin.OUT)
 led = machine.Pin(LED_PIN, machine.Pin.OUT)
 np = NeoPixel(pin, NUM_LEDS)
 client = MQTTClient(CLIENT_ID, SERVER)
-state = True
+state = False
 
 def set_color(red, green, blue):
     for i in range(NUM_LEDS):
@@ -109,7 +110,7 @@ def handle_message(topic, msg):
         clear()
         return
 
-
+FADE_CONSTANT = .65
 def loop():
 
     if not state:
@@ -125,11 +126,14 @@ def loop():
             np[getrandbits(8) % NUM_LEDS] = palette[getrandbits(8) % len(palette)]
 
         np.write();
-        sleep(.1)
+        sleep(.01)
 
+        # TODO: Fade out gradually when shutting off
         for i in range(NUM_LEDS):
-            color = np[i]
-            np[i] = (color[0] >> 1, color[1] >> 1, color[2] >> 1)
+            color = list(np[i])
+            for j in range(3):
+                color[j] = int(float(color[j]) * FADE_CONSTANT)
+            np[i] = color
 
         client.check_msg()
         if not state:

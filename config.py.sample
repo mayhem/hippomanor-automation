@@ -1,2 +1,7 @@
 WIFI_SSID = ""
 WIFI_PASSWORD = ""
+SERVER = ""
+
+STATE_TOPIC = b"home/bedroom/temphum/state"
+NAME_TEMP = "Bedroom temperature"
+DISCOVER_TOPIC_TEMP = b"homeassistant/sensor/temp/config"

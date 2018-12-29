@@ -1,3 +1,4 @@
+import sys
 from math import fmod
 from urandom import getrandbits
 from time import sleep, time
@@ -6,6 +7,7 @@ import machine
 from neopixel import NeoPixel
 import network
 from umqtt.simple import MQTTClient
+import json
 
 import config
 
@@ -16,9 +18,6 @@ WHITE = (77, 52, 25) # consumes about 1.08A @5V for each strip
 
 SERVER = "10.1.1.2"
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
-TOPIC = b"home/bedroom/leds/set"
-NAME = "bedroomleds"
-DISCOVER = b"homeassistant/light/bedroomleds/config"
 
 pin = machine.Pin(OUTPUT_PIN, machine.Pin.OUT)
 led = machine.Pin(LED_PIN, machine.Pin.OUT)
@@ -98,46 +97,51 @@ def handle_message(topic, msg):
 
     print(topic, msg)
 
-    if topic != TOPIC:
+    if topic != config.COMMAND_TOPIC:
         return
 
     if msg.lower() == b"on":
         state = True
+        client.publish(config.STATE_TOPIC, "ON")
         return
 
     if msg.lower() == b"off":
         state = False
+        client.publish(config.STATE_TOPIC, "OFF")
         clear()
         return
 
 FADE_CONSTANT = .65
 def loop():
 
-    if not state:
-        client.check_msg()
-        sleep(.001)
-        return
-        
-    dots = 10
-    palette_funcs = (create_analogous_palette, create_complementary_palette, create_triad_palette, create_analogous_palette)
-    palette = palette_funcs[getrandbits(8) % len(palette_funcs)]()
-    for p in range(10):
-        for i in range(dots):
-            np[getrandbits(8) % NUM_LEDS] = palette[getrandbits(8) % len(palette)]
-
-        np.write();
-        sleep(.01)
-
-        # TODO: Fade out gradually when shutting off
-        for i in range(NUM_LEDS):
-            color = list(np[i])
-            for j in range(3):
-                color[j] = int(float(color[j]) * FADE_CONSTANT)
-            np[i] = color
-
-        client.check_msg()
+    try:
         if not state:
+            client.check_msg()
+            sleep(.001)
             return
+        dots = 10
+        palette_funcs = (create_analogous_palette, create_complementary_palette, create_triad_palette, create_analogous_palette)
+        palette = palette_funcs[getrandbits(8) % len(palette_funcs)]()
+        for p in range(10):
+            for i in range(dots):
+                np[getrandbits(8) % NUM_LEDS] = palette[getrandbits(8) % len(palette)]
+
+            np.write();
+            sleep(.01)
+
+            # TODO: Fade out gradually when shutting off
+            for i in range(NUM_LEDS):
+                color = list(np[i])
+                for j in range(3):
+                    color[j] = int(float(color[j]) * FADE_CONSTANT)
+                np[i] = color
+
+            client.check_msg()
+            if not state:
+                return
+    except KeyboardInterrupt:
+        client.publish(config.DISCOVER_TOPIC, "")
+        sys.exit(0)
 
 
 def setup():
@@ -158,8 +162,13 @@ def setup():
 
     client.set_callback(handle_message)
     client.connect()
-    client.subscribe(TOPIC)
-    client.publish(DISCOVER, b'{"name": NAME, "device_class": "light"}')
+    client.subscribe(config.COMMAND_TOPIC)
+    client.publish(config.DISCOVER_TOPIC, bytes(json.dumps(
+        {
+            "name": config.NAME, 
+            "command_topic": config.COMMAND_TOPIC, 
+            "device_class": "light",
+        }), "utf-8"))
 
 if __name__ == "__main__":
     setup()

@@ -1,2 +1,7 @@
 WIFI_SSID = ""
 WIFI_PASSWORD = ""
+
+#                 example values
+TOPIC = b""       # "home/bedroom/leds/set"
+NAME = b""        # "bedroomleds"
+DISCOVER = b""    # "homeassistant/light/bedroomleds/config"

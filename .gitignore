@@ -1,5 +1,5 @@
-config.py
 net_config.py
+config*
 .ve
 *.pyc
 downloads

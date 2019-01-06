@@ -6,25 +6,22 @@ import network
 import json
 from umqtt.simple import MQTTClient
 from machine import I2C
-import config
+import net_config
+import _config as config
+from influx import post_points
 
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
+STATE_TOPIC = b"home/%s/state" % config.NODE_ID
+DISCOVER_TOPIC = b"homeassistant/sensor/%s/config" % config.NODE_ID
 
 i2c = I2C(scl=machine.Pin(5), sda=machine.Pin(4))
 address = 24
 temp_reg = 0x5
-client = MQTTClient(CLIENT_ID, config.SERVER)
+client = MQTTClient(CLIENT_ID, net_config.MQTT_SERVER, net_config.MQTT_PORT)
+
 
 def startup():
     pass
-
-
-def handle_message(topic, msg):
-
-    print(topic, msg)
-
-    if topic != config.STATE_TOPIC:
-        return
 
 
 def temp_c(data):
@@ -42,10 +39,21 @@ def loop():
     if next_update and next_update < time():
         try:
             temp = i2c.readfrom_mem(address, temp_reg, 2)
-            client.publish(config.STATE_TOPIC_TEMP, b"%.1fC" % temp_c(temp))
-            print(temp_c(temp))
+            temp = b"%.1f" % temp_c(temp)
         except OSError as err:
             print("Cannot read sensor:", err)
+
+        print(temp)
+
+        try:
+            client.publish(STATE_TOPIC, temp)
+        except OSError as err:
+            print("Cannot send to mqtt:", err)
+
+        try:
+            post_points(config.NODE_LOCATION, { 'temperature' : temp })
+        except OSError as err:
+            print("Cannot submit data to influx:", err)
 
         next_update += 30 
 
@@ -59,18 +67,18 @@ def setup():
     ap_if.active(False)
     sta_if = network.WLAN(network.STA_IF)
     sta_if.active(True)
-    sta_if.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
+    sta_if.connect(net_config.WIFI_SSID, net_config.WIFI_PASSWORD)
     print("connecting to wifi....")
     while not sta_if.isconnected():
         sleep(1)
 
     print("Connected with IP", sta_if.ifconfig()[0])
 
-    client.set_callback(handle_message)
     client.connect()
-    client.publish(config.DISCOVER_TOPIC_TEMP, 
+    client.publish(DISCOVER_TOPIC, 
         json.dumps({
-            "state_topic": config.STATE_TOPIC_HUM
+            "state_topic": STATE_TOPIC,
+            "name" : config.NODE_NAME
         }))
 
     next_update = time()

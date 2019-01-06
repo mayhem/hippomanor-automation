@@ -1,3 +1,5 @@
 config.py
+net_config.py
 .ve
 *.pyc
+downloads

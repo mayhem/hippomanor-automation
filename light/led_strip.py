@@ -8,21 +8,23 @@ from neopixel import NeoPixel
 import network
 from umqtt.simple import MQTTClient
 import json
-
-import config
+import net_config
+import _config as config
 
 LED_PIN = 2
 OUTPUT_PIN = 4
 NUM_LEDS = 144 
 WHITE = (77, 52, 25) # consumes about 1.08A @5V for each strip
 
-SERVER = "10.1.1.2"
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
+COMMAND_TOPIC = b"home/%s/set" % config.NODE_ID
+STATE_TOPIC = b"home/%s/state" % config.NODE_ID
+DISCOVER_TOPIC = b"homeassistant/light/%s/config" % config.NODE_ID
 
 pin = machine.Pin(OUTPUT_PIN, machine.Pin.OUT)
 led = machine.Pin(LED_PIN, machine.Pin.OUT)
 np = NeoPixel(pin, NUM_LEDS)
-client = MQTTClient(CLIENT_ID, SERVER)
+client = MQTTClient(CLIENT_ID, net_config.MQTT_SERVER, net_config.MQTT_PORT)
 state = False
 
 def set_color(red, green, blue):
@@ -97,21 +99,24 @@ def handle_message(topic, msg):
 
     print(topic, msg)
 
-    if topic != config.COMMAND_TOPIC:
+    if topic != COMMAND_TOPIC:
         return
 
     if msg.lower() == b"on":
         state = True
-        client.publish(config.STATE_TOPIC, "ON")
+        client.publish(STATE_TOPIC, "ON")
         return
 
     if msg.lower() == b"off":
         state = False
-        client.publish(config.STATE_TOPIC, "OFF")
+        client.publish(STATE_TOPIC, "OFF")
         clear()
         return
 
+
 FADE_CONSTANT = .65
+PASSES = 35
+DOTS = 10
 def loop():
 
     try:
@@ -119,15 +124,15 @@ def loop():
             client.check_msg()
             sleep(.001)
             return
-        dots = 10
+
         palette_funcs = (create_analogous_palette, create_complementary_palette, create_triad_palette, create_analogous_palette)
         palette = palette_funcs[getrandbits(8) % len(palette_funcs)]()
-        for p in range(10):
-            for i in range(dots):
+        for p in range(PASSES):
+            for i in range(DOTS):
                 np[getrandbits(8) % NUM_LEDS] = palette[getrandbits(8) % len(palette)]
 
             np.write();
-            sleep(.01)
+            sleep(.5)
 
             # TODO: Fade out gradually when shutting off
             for i in range(NUM_LEDS):
@@ -140,7 +145,7 @@ def loop():
             if not state:
                 return
     except KeyboardInterrupt:
-        client.publish(config.DISCOVER_TOPIC, "")
+        client.publish(DISCOVER_TOPIC, "")
         sys.exit(0)
 
 
@@ -152,7 +157,7 @@ def setup():
     ap_if.active(False)
     sta_if = network.WLAN(network.STA_IF)
     sta_if.active(True)
-    sta_if.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
+    sta_if.connect(net_config.WIFI_SSID, net_config.WIFI_PASSWORD)
     print("connecting to wifi....")
     while not sta_if.isconnected():
         sleep(1)
@@ -162,12 +167,13 @@ def setup():
 
     client.set_callback(handle_message)
     client.connect()
-    client.subscribe(config.COMMAND_TOPIC)
-    client.publish(config.DISCOVER_TOPIC, bytes(json.dumps(
+    client.subscribe(COMMAND_TOPIC)
+    client.publish(DISCOVER_TOPIC, bytes(json.dumps(
         {
-            "name": config.NAME, 
-            "command_topic": config.COMMAND_TOPIC, 
+            "name": config.NODE_NAME, 
+            "command_topic": COMMAND_TOPIC, 
             "device_class": "light",
+            "assumed_state": "true"
         }), "utf-8"))
 
 if __name__ == "__main__":

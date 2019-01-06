@@ -7,6 +7,9 @@ for f in sorted(os.listdir()):
     if f in ['main.py', 'boot.py', 'config.py']:
         continue
 
+    if f.startswith("_"):
+        continue
+
     try:
         print("starting module %s" % f)
         m = __import__(f[:-3])

@@ -2,6 +2,11 @@ WIFI_SSID = ""
 WIFI_PASSWORD = ""
 
 #                 example values
+SERVER = "localhost"
 TOPIC = b""       # "home/bedroom/leds/set"
 NAME = b""        # "bedroomleds"
 DISCOVER = b""    # "homeassistant/light/bedroomleds/config"
+
+STATE_TOPIC = b"home/bedroom/temphum/state"
+NAME_TEMP = "Bedroom temperature"
+DISCOVER_TOPIC_TEMP = b"homeassistant/sensor/temp/config"

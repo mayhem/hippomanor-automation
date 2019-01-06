@@ -78,7 +78,8 @@ def setup():
     client.publish(DISCOVER_TOPIC, 
         json.dumps({
             "state_topic": STATE_TOPIC,
-            "name" : config.NODE_NAME
+            "name" : config.NODE_NAME,
+            "unit_of_measurement": "C"
         }))
 
     next_update = time()

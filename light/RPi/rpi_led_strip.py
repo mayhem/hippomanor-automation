@@ -1,5 +1,6 @@
 import sys
 import socket
+import json
 from random import random, randint
 from math import fmod
 from time import sleep, time
@@ -38,6 +39,7 @@ class LEDArt(object):
         for s in self.strips:
             s.begin()
 
+        self.mqttc = None
 
     def set_color(self, col, channel=CHANNEL_BOTH):
         for i in range(NUM_LEDS):
@@ -57,6 +59,22 @@ class LEDArt(object):
     def clear(self, channel=CHANNEL_BOTH):
         self.set_color((0,0,0), channel)
         self.show(channel)
+
+
+    def fade_out(self, channel=CHANNEL_BOTH):
+        for p in range(7):
+            for strip in self.strips:
+                self._fade_strip(strip, .8)
+            self.show()
+
+
+    def _fade_strip(self, strip, fade):
+        for i in range(NUM_LEDS):
+            color = strip.getPixelColor(i)
+            color = [color >> 16, (color >> 8) & 0xFF, color & 0xFF]
+            for j in range(3):
+                color[j] >>= 1
+            strip.setPixelColor(i, Color(color[0], color[1], color[2]))
 
 
     def show(self, channel=CHANNEL_BOTH):
@@ -109,34 +127,34 @@ class LEDArt(object):
                 LEDArt.make_hsv(fmod(r + (s * 2), 1.0)))
 
 
-#    def handle_message(self.topic, msg):
-#        global state
-#
-#        print(topic, msg)
-#
-#        if topic != COMMAND_TOPIC:
-#            return
-#
-#        if msg.lower() == b"on":
-#            state = True
-#            client.publish(STATE_TOPIC, "ON")
-#            return
-#
-#        if msg.lower() == b"off":
-#            state = False
-#            client.publish(STATE_TOPIC, "OFF")
-#            clear()
-#            return
+    @staticmethod
+    def on_message(mqttc, user_data, msg):
+        print("on message", msg.topic, msg.payload)
+        mqttc.__led._handle_message(mqttc, msg)
+
+
+    def _handle_message(self, mqttc, msg):
+        if msg.topic != COMMAND_TOPIC:
+            return
+
+        if msg.payload.lower() == b"on":
+            self.state = True
+            mqttc.publish(STATE_TOPIC, "ON")
+            return
+
+        if msg.payload.lower() == b"off":
+            self.state = False
+            mqttc.publish(STATE_TOPIC, "OFF")
+            clear()
+            return
 
 
     def loop(self):
 
-        try:
-#            if not state:
-#                client.check_msg()
-#                sleep(.001)
-#                return
+        if not self.state:
+            return
 
+        try:
             palette_funcs = (LEDArt.create_analogous_palette, LEDArt.create_complementary_palette, LEDArt.create_triad_palette, LEDArt.create_analogous_palette)
             palette = palette_funcs[randint(0, len(palette_funcs) - 1)]()
             for p in range(self.PASSES):
@@ -145,7 +163,12 @@ class LEDArt(object):
                         self.set_led_color(randint(0, NUM_LEDS-1), palette[randint(0, len(palette)-1)], j)
 
                 self.show()
-                sleep(.5)
+                for s in range(10):
+                    sleep(.05)
+
+                    if not self.state:
+                        self.fade_out()
+                        return
 
                 for strip in self.strips:
                     for i in range(NUM_LEDS):
@@ -155,26 +178,35 @@ class LEDArt(object):
                             color[j] = int(float(color[j]) * self.FADE_CONSTANT)
                         strip.setPixelColor(i, Color(color[0], color[1], color[2]))
 
-#                client.check_msg()
-#                if not state:
-#                    return
+                if not self.state:
+                    self.fade_out()
+                    return
+
         except KeyboardInterrupt:
-#            client.publish(DISCOVER_TOPIC, "")
             self.clear()
+            self.mqttc.publish(DISCOVER_TOPIC, "")
+            self.mqttc.disconnect()
+            self.mqttc.loop_stop()
             sys.exit(0)
 
 
     def setup(self):
         self.startup()
 
-#        client.subscribe(COMMAND_TOPIC)
-#        client.publish(DISCOVER_TOPIC, bytes(json.dumps(
-#            {
-#                "name": config.NODE_NAME, 
-#                "command_topic": COMMAND_TOPIC, 
-#                "device_class": "light",
-#                "assumed_state": "true"
-#            }), "utf-8"))
+        self.mqttc = mqtt.Client(CLIENT_ID)
+        self.mqttc.on_message = LEDArt.on_message
+        self.mqttc.connect("10.1.1.2", 1883, 60)
+        self.mqttc.loop_start()
+        self.mqttc.__led = self
+
+        self.mqttc.subscribe(COMMAND_TOPIC)
+        self.mqttc.publish(DISCOVER_TOPIC, bytes(json.dumps(
+            {
+                "name": config.NODE_NAME, 
+                "command_topic": COMMAND_TOPIC, 
+                "device_class": "light",
+                "assumed_state": "true"
+            }), "utf-8"))
 
 if __name__ == "__main__":
     a = LEDArt()

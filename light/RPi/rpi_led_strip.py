@@ -89,14 +89,13 @@ class LEDArt(object):
         colors = ( (128, 0, 128), (128, 30, 0) )
 
         self.clear()
-        self.clear()
-        for p in range(6):
-            self.set_color(colors[0], p % 2)
-            self.set_color(colors[1], (p+1) % 2)
+        for p in range(100):
+            self.set_led_color(randint(0, NUM_LEDS-1), colors[randint(0, 1)], 0)
+            self.set_led_color(randint(0, NUM_LEDS-1), colors[randint(0, 1)], 1)
             self.show()
-            sleep(.2)
+            sleep(.002)
 
-        self.clear()
+        self.fade_out()
 
     @staticmethod
     def make_hsv(hue):

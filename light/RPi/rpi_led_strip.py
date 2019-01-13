@@ -32,13 +32,13 @@ class LEDArt(object):
 
 
     def __init__(self):
-        self.state = False
+        self.state = True
         self.FADE_CONSTANT = .65
         self.PASSES = 35
         self.DOTS = 10
 
-        self.strips = [ Adafruit_NeoPixel(NUM_LEDS, CH0_LED_PIN, 800000, 10, False, 255, 0),
-                        Adafruit_NeoPixel(NUM_LEDS, CH1_LED_PIN, 800000, 10, False, 255, 1) ]
+        self.strips = [ Adafruit_NeoPixel(NUM_LEDS, CH0_LED_PIN, 700000, 10, False, 255, 0),
+                        Adafruit_NeoPixel(NUM_LEDS, CH1_LED_PIN, 700000, 10, False, 255, 1) ]
         for s in self.strips:
             s.begin()
 
@@ -90,10 +90,6 @@ class LEDArt(object):
     def startup(self):
 
         colors = ( (128, 0, 128), (128, 30, 0) )
-
-        for i in range(10):
-            self.set_color((1,1,1))
-            self.set_color((0,0,0))
 
         for p in range(100):
             self.set_led_color(randint(0, NUM_LEDS-1), colors[randint(0, 1)], 0)
@@ -155,48 +151,7 @@ class LEDArt(object):
             return
 
 
-    def _loop(self):
-
-        if not self.state:
-            return
-
-        try:
-            palette_funcs = (LEDArt.create_analogous_palette, LEDArt.create_complementary_palette, LEDArt.create_triad_palette, LEDArt.create_analogous_palette)
-            palette = palette_funcs[randint(0, len(palette_funcs) - 1)]()
-            for p in range(self.PASSES):
-                for i in range(self.DOTS):
-                    for j in range(len(self.strips)):
-                        self.set_led_color(randint(0, NUM_LEDS-1), palette[randint(0, len(palette)-1)], j)
-
-                self.show()
-                for s in range(10):
-                    sleep(.05)
-
-                    if not self.state:
-                        self.fade_out()
-                        return
-
-                for strip in self.strips:
-                    for i in range(NUM_LEDS):
-                        color = strip.getPixelColor(i)
-                        color = [color >> 16, (color >> 8) & 0xFF, color & 0xFF]
-                        for j in range(3):
-                            color[j] = int(float(color[j]) * self.FADE_CONSTANT)
-                        strip.setPixelColor(i, Color(color[1], color[0], color[2]))
-
-                if not self.state:
-                    self.fade_out()
-                    return
-
-        except KeyboardInterrupt:
-            self.clear()
-            self.mqttc.publish(DISCOVER_TOPIC, "")
-            self.mqttc.disconnect()
-            self.mqttc.loop_stop()
-            sys.exit(0)
-
-
-    def _setup(self):
+    def setup(self):
         self.startup()
 
         self.mqttc = mqtt.Client(CLIENT_ID)
@@ -215,29 +170,97 @@ class LEDArt(object):
             }), "utf-8"))
 
 
-    STEPS = 25
-    def loop(self):
-        for i in range(self.STEPS):
-            t = i / float(self.STEPS) * 2 * 3.1412
-            jitter = math.sin(t) / 4
-            p = [ (0.0, (128, 0, 128)), 
-                  (0.5 + jitter, (128, 60, 0)),
-                  (1.0, (128, 0, 128))
-            ]
-            g = gradient.Gradient(NUM_LEDS, p)
-            g.render(self.strips[0])
-            g.render(self.strips[1])
-            self.show()
+    def color_sparkle_loop(self):
 
-    def setup(self):
-        self.startup()
+        palette_funcs = (LEDArt.create_analogous_palette, LEDArt.create_complementary_palette, LEDArt.create_triad_palette, LEDArt.create_analogous_palette)
+        palette = palette_funcs[randint(0, len(palette_funcs) - 1)]()
+        for p in range(self.PASSES):
+            for i in range(self.DOTS):
+                for j in range(len(self.strips)):
+                    self.set_led_color(randint(0, NUM_LEDS-1), palette[randint(0, len(palette)-1)], j)
+
+            self.show()
+            for s in range(10):
+                sleep(.05)
+
+                if not self.state:
+                    self.fade_out()
+                    return
+
+            for strip in self.strips:
+                for i in range(NUM_LEDS):
+                    color = strip.getPixelColor(i)
+                    color = [color >> 16, (color >> 8) & 0xFF, color & 0xFF]
+                    for j in range(3):
+                        color[j] = int(float(color[j]) * self.FADE_CONSTANT)
+                    strip.setPixelColor(i, Color(color[1], color[0], color[2]))
+
+            if not self.state:
+                self.fade_out()
+                return
+
+
+
+    def undulating_orange_and_purple_setup(self):
+        self.uoap_index = 0
+        self.uaop_steps = 25
+        self.uoap_increment = 1.0 / self.uaop_steps 
+
+
+    def undulating_orange_and_purple_loop(self):
+
+        t = self.uoap_index * 2 * math.pi
+        jitter = math.sin(t) / 4
+        p = [ (0.0, (16, 0, 16)), 
+              (0.45 + jitter, (16, 8, 0)),
+              (0.65 + jitter, (16, 8, 0)),
+              (1.0, (16, 0, 16))
+        ]
+        g = gradient.Gradient(NUM_LEDS, p)
+        g.render(self.strips[0])
+
+        p = [ (0.0, (16, 0, 16)), 
+              (0.45 - jitter, (16, 8, 0)),
+              (0.65 - jitter, (16, 8, 0)),
+              (1.0, (16, 0, 16))
+        ]
+        g = gradient.Gradient(NUM_LEDS, p)
+        g.render(self.strips[1])
+
+        self.show()
+
+        self.uoap_index += self.uoap_increment
+        if self.uoap_index > 1.0:
+            self.uoap_index = 0.0
+
+
+    def loop(self):
+        if not self.state:
+            return
+
+        try:
+            #self.color_sparkle_loop()
+            self.undulating_orange_and_purple_loop()
+
+            if not self.state:
+                self.fade_out()
+                return
+
+        except KeyboardInterrupt:
+            self.clear()
+            self.mqttc.publish(DISCOVER_TOPIC, "")
+            self.mqttc.disconnect()
+            self.mqttc.loop_stop()
+            sys.exit(0)
 
 
 if __name__ == "__main__":
     a = LEDArt()
     a.setup()
+    a.undulating_orange_and_purple_setup()
     try:
         while True:
             a.loop()
+            
     except KeyboardInterrupt:
         a.fade_out()

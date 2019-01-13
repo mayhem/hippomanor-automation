@@ -21,6 +21,7 @@ WHITE = (77, 52, 25) # consumes about 1.08A @5V for each strip
 CLIENT_ID = socket.gethostname()
 COMMAND_TOPIC = "home/%s/set" % config.NODE_ID
 STATE_TOPIC = "home/%s/state" % config.NODE_ID
+BRIGHTNESS_TOPIC = "home/%s/brightness" % config.NODE_ID
 DISCOVER_TOPIC = "homeassistant/light/%s/config" % config.NODE_ID
 
 CHANNEL_0     = 0
@@ -32,10 +33,11 @@ class LEDArt(object):
 
 
     def __init__(self):
-        self.state = True
+        self.state = False
         self.FADE_CONSTANT = .65
         self.PASSES = 35
         self.DOTS = 10
+        self.brightness = 128
 
         self.strips = [ Adafruit_NeoPixel(NUM_LEDS, CH0_LED_PIN, 700000, 10, False, 255, 0),
                         Adafruit_NeoPixel(NUM_LEDS, CH1_LED_PIN, 700000, 10, False, 255, 1) ]
@@ -87,6 +89,12 @@ class LEDArt(object):
             self.strips[1].show()
 
 
+    def set_brightness(self, brightness):
+        self.brightness = brightness
+        for strip in self.strips:
+            strip.setBrightness(brightness)
+
+
     def startup(self):
 
         colors = ( (128, 0, 128), (128, 30, 0) )
@@ -136,23 +144,32 @@ class LEDArt(object):
 
 
     def _handle_message(self, mqttc, msg):
-        if msg.topic != COMMAND_TOPIC:
+
+        if msg.topic == COMMAND_TOPIC:
+            if msg.payload.lower() == b"on":
+                self.state = True
+                mqttc.publish(STATE_TOPIC, "ON")
+                return
+
+            if msg.payload.lower() == b"off":
+                self.state = False
+                mqttc.publish(STATE_TOPIC, "OFF")
+                clear()
+                return
+
             return
 
-        if msg.payload.lower() == b"on":
-            self.state = True
-            mqttc.publish(STATE_TOPIC, "ON")
-            return
-
-        if msg.payload.lower() == b"off":
-            self.state = False
-            mqttc.publish(STATE_TOPIC, "OFF")
-            clear()
-            return
+        if msg.topic == BRIGHTNESS_TOPIC:
+            try:
+                self.set_brightness(int(msg.payload))
+            except ValueError:
+                pass
+  
 
 
     def setup(self):
         self.startup()
+        self.set_brightness(self.brightness)
 
         self.mqttc = mqtt.Client(CLIENT_ID)
         self.mqttc.on_message = LEDArt.on_message
@@ -161,12 +178,15 @@ class LEDArt(object):
         self.mqttc.__led = self
 
         self.mqttc.subscribe(COMMAND_TOPIC)
+        self.mqttc.subscribe(BRIGHTNESS_TOPIC)
         self.mqttc.publish(DISCOVER_TOPIC, bytes(json.dumps(
             {
                 "name": config.NODE_NAME, 
                 "command_topic": COMMAND_TOPIC, 
                 "device_class": "light",
-                "assumed_state": "true"
+                "assumed_state": "true",
+                "brightness" : "true",
+                "brightness_command_topic": BRIGHTNESS_TOPIC
             }), "utf-8"))
 
 
@@ -211,18 +231,18 @@ class LEDArt(object):
 
         t = self.uoap_index * 2 * math.pi
         jitter = math.sin(t) / 4
-        p = [ (0.0, (16, 0, 16)), 
-              (0.45 + jitter, (16, 8, 0)),
-              (0.65 + jitter, (16, 8, 0)),
-              (1.0, (16, 0, 16))
+        p = [ (0.0, (255, 0, 255)), 
+              (0.45 + jitter, (255, 60, 0)),
+              (0.65 + jitter, (255, 60, 0)),
+              (1.0, (255, 0, 255))
         ]
         g = gradient.Gradient(NUM_LEDS, p)
         g.render(self.strips[0])
 
-        p = [ (0.0, (16, 0, 16)), 
-              (0.45 - jitter, (16, 8, 0)),
-              (0.65 - jitter, (16, 8, 0)),
-              (1.0, (16, 0, 16))
+        p = [ (0.0, (255, 0, 255)), 
+              (0.45 - jitter, (255, 60, 0)),
+              (0.65 - jitter, (255, 60, 0)),
+              (1.0, (255, 0, 255))
         ]
         g = gradient.Gradient(NUM_LEDS, p)
         g.render(self.strips[1])

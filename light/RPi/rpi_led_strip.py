@@ -1,3 +1,4 @@
+import abc
 import sys
 import socket
 import json
@@ -19,14 +20,95 @@ NUM_LEDS = 144
 WHITE = (77, 52, 25) # consumes about 1.08A @5V for each strip
 
 CLIENT_ID = socket.gethostname()
+DISCOVER_TOPIC = "homeassistant/light/%s/config" % config.NODE_ID
 COMMAND_TOPIC = "home/%s/set" % config.NODE_ID
 STATE_TOPIC = "home/%s/state" % config.NODE_ID
 BRIGHTNESS_TOPIC = "home/%s/brightness" % config.NODE_ID
-DISCOVER_TOPIC = "homeassistant/light/%s/config" % config.NODE_ID
+RGB_COLOR_TOPIC = "home/%s/rgb" % config.NODE_ID
+EFFECT_TOPIC = "home/%s/effect" % config.NODE_ID
 
 CHANNEL_0     = 0
 CHANNEL_1     = 1
 CHANNEL_BOTH  = 2
+
+class Effect(object):
+
+    def __init__(self, led_art):
+        self.led_art = led_art
+        self.effect_name = None 
+
+    @property
+    def name(self):
+        return self.effect_name
+
+    @abc.abstractmethod
+    def setup(self):
+        pass
+
+    @abc.abstractmethod
+    def loop(self):
+        pass
+
+
+class UndulatingEffect(Effect):
+
+    def __init__(self, led_art):
+        Effect.__init__(self, led_art)
+        self.effect_name = "undulating colors"
+
+
+    def setup(self):
+        self.uoap_index = 0
+        self.uaop_steps = 25
+        self.uoap_increment = 1.0 / self.uaop_steps 
+
+
+    def loop(self):
+        t = self.uoap_index * 2 * math.pi
+        jitter = math.sin(t) / 4
+        p = [ (0.0, (255, 0, 255)), 
+              (0.45 + jitter, (255, 60, 0)),
+              (0.65 + jitter, (255, 60, 0)),
+              (1.0, (255, 0, 255))
+        ]
+        g = gradient.Gradient(NUM_LEDS, p)
+        g.render(self.led_art.strips[0])
+
+        p = [ (0.0, (255, 0, 255)), 
+              (0.45 - jitter, (255, 60, 0)),
+              (0.65 - jitter, (255, 60, 0)),
+              (1.0, (255, 0, 255))
+        ]
+        g = gradient.Gradient(NUM_LEDS, p)
+        g.render(self.led_art.strips[1])
+
+        self.led_art.show()
+
+        self.uoap_index += self.uoap_increment
+        if self.uoap_index > 1.0:
+            self.uoap_index = 0.0
+
+
+
+class SolidEffect(Effect):
+
+    def __init__(self, led_art):
+        Effect.__init__(self, led_art)
+        self.color = (255, 255, 255)
+        self.done = False
+        self.effect_name = "solid color"
+
+
+    def setup(self):
+        self.done = False
+
+
+    def loop(self):
+        if not self.done:
+            self.led_art.set_color(self.color)
+            self.led_art.show()
+
+        self.done = True
 
 
 class LEDArt(object):
@@ -38,6 +120,8 @@ class LEDArt(object):
         self.PASSES = 35
         self.DOTS = 10
         self.brightness = 128
+        self.effect_list = []
+        self.current_effect = None
 
         self.strips = [ Adafruit_NeoPixel(NUM_LEDS, CH0_LED_PIN, 700000, 10, False, 255, 0),
                         Adafruit_NeoPixel(NUM_LEDS, CH1_LED_PIN, 700000, 10, False, 255, 1) ]
@@ -71,6 +155,7 @@ class LEDArt(object):
             for strip in self.strips:
                 self._fade_strip(strip, .8)
             self.show()
+            sleep(.02)
 
 
     def _fade_strip(self, strip, fade):
@@ -93,6 +178,25 @@ class LEDArt(object):
         self.brightness = brightness
         for strip in self.strips:
             strip.setBrightness(brightness)
+            strip.show()
+
+
+    def set_effect(self, effect_name):
+        for effect in self.effect_list:
+            if effect.name == effect_name:
+                saved_state = self.state
+                self.state = False
+                self.fade_out()
+                self.current_effect = effect 
+                self.current_effect.setup()
+                self.state = saved_state
+                break
+
+
+    def add_effect(self, effect):
+        self.effect_list.append(effect)
+        if len(self.effect_list) == 1:
+            self.set_effect(str(effect.name))
 
 
     def startup(self):
@@ -139,7 +243,6 @@ class LEDArt(object):
 
     @staticmethod
     def on_message(mqttc, user_data, msg):
-        print("on message", msg.topic, msg.payload)
         mqttc.__led._handle_message(mqttc, msg)
 
 
@@ -165,11 +268,20 @@ class LEDArt(object):
             except ValueError:
                 pass
   
-
+        if msg.topic == EFFECT_TOPIC:
+            try:
+                self.set_effect(str(msg.payload, 'utf-8'))
+            except ValueError:
+                pass
+             
 
     def setup(self):
         self.startup()
         self.set_brightness(self.brightness)
+
+        effect_name_list = []
+        for effect in self.effect_list:
+            effect_name_list.append(effect.name)
 
         self.mqttc = mqtt.Client(CLIENT_ID)
         self.mqttc.on_message = LEDArt.on_message
@@ -179,14 +291,22 @@ class LEDArt(object):
 
         self.mqttc.subscribe(COMMAND_TOPIC)
         self.mqttc.subscribe(BRIGHTNESS_TOPIC)
+        self.mqttc.subscribe(EFFECT_TOPIC)
+        self.mqttc.subscribe(RGB_COLOR_TOPIC)
         self.mqttc.publish(DISCOVER_TOPIC, bytes(json.dumps(
             {
                 "name": config.NODE_NAME, 
                 "command_topic": COMMAND_TOPIC, 
+                "state_topic": STATE_TOPIC, 
                 "device_class": "light",
                 "assumed_state": "true",
                 "brightness" : "true",
-                "brightness_command_topic": BRIGHTNESS_TOPIC
+                "brightness_command_topic": BRIGHTNESS_TOPIC,
+                "effect" : "true",
+                "effect_command_topic": EFFECT_TOPIC,
+                "effect_list": effect_name_list,
+                "rgb_color" : "true",
+                "rgb_command_topic" : RGB_COLOR_TOPIC,
             }), "utf-8"))
 
 
@@ -220,67 +340,31 @@ class LEDArt(object):
                 return
 
 
-
-    def undulating_orange_and_purple_setup(self):
-        self.uoap_index = 0
-        self.uaop_steps = 25
-        self.uoap_increment = 1.0 / self.uaop_steps 
-
-
-    def undulating_orange_and_purple_loop(self):
-
-        t = self.uoap_index * 2 * math.pi
-        jitter = math.sin(t) / 4
-        p = [ (0.0, (255, 0, 255)), 
-              (0.45 + jitter, (255, 60, 0)),
-              (0.65 + jitter, (255, 60, 0)),
-              (1.0, (255, 0, 255))
-        ]
-        g = gradient.Gradient(NUM_LEDS, p)
-        g.render(self.strips[0])
-
-        p = [ (0.0, (255, 0, 255)), 
-              (0.45 - jitter, (255, 60, 0)),
-              (0.65 - jitter, (255, 60, 0)),
-              (1.0, (255, 0, 255))
-        ]
-        g = gradient.Gradient(NUM_LEDS, p)
-        g.render(self.strips[1])
-
-        self.show()
-
-        self.uoap_index += self.uoap_increment
-        if self.uoap_index > 1.0:
-            self.uoap_index = 0.0
-
-
     def loop(self):
+
         if not self.state:
             return
 
-        try:
-            #self.color_sparkle_loop()
-            self.undulating_orange_and_purple_loop()
+        if not self.current_effect:
+            return
 
-            if not self.state:
-                self.fade_out()
-                return
+        self.current_effect.loop()
+        if not self.state:
+            self.fade_out()
+            return
 
-        except KeyboardInterrupt:
-            self.clear()
-            self.mqttc.publish(DISCOVER_TOPIC, "")
-            self.mqttc.disconnect()
-            self.mqttc.loop_stop()
-            sys.exit(0)
 
 
 if __name__ == "__main__":
     a = LEDArt()
+    a.add_effect(SolidEffect(a))
+    a.add_effect(UndulatingEffect(a))
     a.setup()
-    a.undulating_orange_and_purple_setup()
     try:
         while True:
             a.loop()
-            
     except KeyboardInterrupt:
         a.fade_out()
+        a.mqttc.publish(DISCOVER_TOPIC, "")
+        a.mqttc.disconnect()
+        a.mqttc.loop_stop()

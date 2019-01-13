@@ -1,6 +1,7 @@
 import sys
 import socket
 import json
+import math
 from random import random, randint
 from math import fmod
 from time import sleep, time
@@ -10,8 +11,9 @@ from colorsys import hsv_to_rgb
 
 import net_config
 import config
+import gradient
 
-CH0_LED_PIN = 18
+CH0_LED_PIN = 21
 CH1_LED_PIN = 13
 NUM_LEDS = 144 
 WHITE = (77, 52, 25) # consumes about 1.08A @5V for each strip
@@ -25,6 +27,7 @@ CHANNEL_0     = 0
 CHANNEL_1     = 1
 CHANNEL_BOTH  = 2
 
+
 class LEDArt(object):
 
 
@@ -34,7 +37,7 @@ class LEDArt(object):
         self.PASSES = 35
         self.DOTS = 10
 
-        self.strips = [ Adafruit_NeoPixel(NUM_LEDS, CH0_LED_PIN, 800000, 10, False, 255, 0), 
+        self.strips = [ Adafruit_NeoPixel(NUM_LEDS, CH0_LED_PIN, 800000, 10, False, 255, 0),
                         Adafruit_NeoPixel(NUM_LEDS, CH1_LED_PIN, 800000, 10, False, 255, 1) ]
         for s in self.strips:
             s.begin()
@@ -88,7 +91,10 @@ class LEDArt(object):
 
         colors = ( (128, 0, 128), (128, 30, 0) )
 
-        self.clear()
+        for i in range(10):
+            self.set_color((1,1,1))
+            self.set_color((0,0,0))
+
         for p in range(100):
             self.set_led_color(randint(0, NUM_LEDS-1), colors[randint(0, 1)], 0)
             self.set_led_color(randint(0, NUM_LEDS-1), colors[randint(0, 1)], 1)
@@ -96,6 +102,7 @@ class LEDArt(object):
             sleep(.002)
 
         self.fade_out()
+        self.clear()
 
     @staticmethod
     def make_hsv(hue):
@@ -148,7 +155,7 @@ class LEDArt(object):
             return
 
 
-    def loop(self):
+    def _loop(self):
 
         if not self.state:
             return
@@ -175,7 +182,7 @@ class LEDArt(object):
                         color = [color >> 16, (color >> 8) & 0xFF, color & 0xFF]
                         for j in range(3):
                             color[j] = int(float(color[j]) * self.FADE_CONSTANT)
-                        strip.setPixelColor(i, Color(color[0], color[1], color[2]))
+                        strip.setPixelColor(i, Color(color[1], color[0], color[2]))
 
                 if not self.state:
                     self.fade_out()
@@ -189,7 +196,7 @@ class LEDArt(object):
             sys.exit(0)
 
 
-    def setup(self):
+    def _setup(self):
         self.startup()
 
         self.mqttc = mqtt.Client(CLIENT_ID)
@@ -207,8 +214,30 @@ class LEDArt(object):
                 "assumed_state": "true"
             }), "utf-8"))
 
+
+    STEPS = 25
+    def loop(self):
+        for i in range(self.STEPS):
+            t = i / float(self.STEPS) * 2 * 3.1412
+            jitter = math.sin(t) / 4
+            p = [ (0.0, (128, 0, 128)), 
+                  (0.5 + jitter, (128, 60, 0)),
+                  (1.0, (128, 0, 128))
+            ]
+            g = gradient.Gradient(NUM_LEDS, p)
+            g.render(self.strips[0])
+            g.render(self.strips[1])
+            self.show()
+
+    def setup(self):
+        self.startup()
+
+
 if __name__ == "__main__":
     a = LEDArt()
     a.setup()
-    while True:
-        a.loop()
+    try:
+        while True:
+            a.loop()
+    except KeyboardInterrupt:
+        a.fade_out()

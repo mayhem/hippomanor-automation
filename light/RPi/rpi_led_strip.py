@@ -103,12 +103,84 @@ class SolidEffect(Effect):
         self.done = False
 
 
+    def set_color(self, color):
+        self.color = color
+        self.done = False
+
+
     def loop(self):
         if not self.done:
+            print("set color")
             self.led_art.set_color(self.color)
             self.led_art.show()
 
         self.done = True
+
+
+class SparkleEffect(Effect):
+
+    def __init__(self, led_art):
+        Effect.__init__(self, led_art)
+        self.effect_name = "sparkle"
+        self.FADE_CONSTANT = .65
+        self.PASSES = 35
+        self.DOTS = 10
+
+    def setup(self):
+        self.passes = 0
+        self.dots = 0
+
+    @staticmethod
+    def make_hsv(hue):
+        (red, green, blue) = hsv_to_rgb(hue, 1.0, 1.0)
+        return (int(red*255), int(green*255), int(blue*266))
+    
+
+    @staticmethod
+    def create_complementary_palette():
+        r = random() / 2.0
+        return (SparkleEffect.make_hsv(r), SparkleEffect.make_hsv(fmod(r + .5, 1.0)))
+
+
+    @staticmethod
+    def create_triad_palette():
+        r = random() / 3.0
+        return (SparkleEffect.make_hsv(r), SparkleEffect.make_hsv(fmod(r + .333, 1.0)), SparkleEffect.make_hsv(fmod(r + .666, 1.0)))
+
+
+    @staticmethod
+    def create_analogous_palette():
+        r = random() / 2.0
+        s = random() / 8.0
+        return (SparkleEffect.make_hsv(r),
+                SparkleEffect.make_hsv(fmod(r - s + 1.0, 1.0)),
+                SparkleEffect.make_hsv(fmod(r - (s * 2) + 1.0, 1.0)),
+                SparkleEffect.make_hsv(fmod(r + s, 1.0)),
+                SparkleEffect.make_hsv(fmod(r + (s * 2), 1.0)))
+
+    def loop(self):
+
+        palette_funcs = (SparkleEffect.create_analogous_palette, SparkleEffect.create_complementary_palette, 
+            SparkleEffect.create_triad_palette, SparkleEffect.create_analogous_palette)
+        palette = palette_funcs[randint(0, len(palette_funcs) - 1)]()
+
+        for pss in range(self.PASSES):
+            for dot in range(self.DOTS):
+                for j in range(len(self.led_art.strips)):
+                    self.led_art.set_led_color(randint(0, NUM_LEDS-1), palette[randint(0, len(palette)-1)], j)
+
+            self.led_art.show()
+            for s in range(10):
+                sleep(.05)
+
+            for strip in self.led_art.strips:
+                for i in range(NUM_LEDS):
+                    color = strip.getPixelColor(i)
+                    color = [color >> 16, (color >> 8) & 0xFF, color & 0xFF]
+                    for j in range(3):
+                        color[j] = int(float(color[j]) * self.FADE_CONSTANT)
+                    strip.setPixelColor(i, Color(color[0], color[1], color[2]))
+
 
 
 class LEDArt(object):
@@ -116,9 +188,6 @@ class LEDArt(object):
 
     def __init__(self):
         self.state = False
-        self.FADE_CONSTANT = .65
-        self.PASSES = 35
-        self.DOTS = 10
         self.brightness = 128
         self.effect_list = []
         self.current_effect = None
@@ -212,34 +281,6 @@ class LEDArt(object):
         self.fade_out()
         self.clear()
 
-    @staticmethod
-    def make_hsv(hue):
-        (red, green, blue) = hsv_to_rgb(hue, 1.0, 1.0)
-        return (int(red*255), int(green*255), int(blue*266))
-    
-
-    @staticmethod
-    def create_complementary_palette():
-        r = random() / 2.0
-        return (LEDArt.make_hsv(r), LEDArt.make_hsv(fmod(r + .5, 1.0)))
-
-
-    @staticmethod
-    def create_triad_palette():
-        r = random() / 3.0
-        return (LEDArt.make_hsv(r), LEDArt.make_hsv(fmod(r + .333, 1.0)), LEDArt.make_hsv(fmod(r + .666, 1.0)))
-
-
-    @staticmethod
-    def create_analogous_palette():
-        r = random() / 2.0
-        s = random() / 8.0
-        return (LEDArt.make_hsv(r),
-                LEDArt.make_hsv(fmod(r - s + 1.0, 1.0)),
-                LEDArt.make_hsv(fmod(r - (s * 2) + 1.0, 1.0)),
-                LEDArt.make_hsv(fmod(r + s, 1.0)),
-                LEDArt.make_hsv(fmod(r + (s * 2), 1.0)))
-
 
     @staticmethod
     def on_message(mqttc, user_data, msg):
@@ -248,6 +289,8 @@ class LEDArt(object):
 
     def _handle_message(self, mqttc, msg):
 
+        payload = str(msg.payload, 'utf-8')
+        print("handle %s - %s" % (msg.topic, msg.payload))
         if msg.topic == COMMAND_TOPIC:
             if msg.payload.lower() == b"on":
                 self.state = True
@@ -273,7 +316,15 @@ class LEDArt(object):
                 self.set_effect(str(msg.payload, 'utf-8'))
             except ValueError:
                 pass
-             
+        
+        if msg.topic == RGB_COLOR_TOPIC:
+            r,g,b = payload.split(",")
+            if self.current_effect.name == "solid color":
+                print("set color")
+                self.current_effect.set_color((int(r),int(g),int(b)))
+
+            return
+           
 
     def setup(self):
         self.startup()
@@ -310,35 +361,6 @@ class LEDArt(object):
             }), "utf-8"))
 
 
-    def color_sparkle_loop(self):
-
-        palette_funcs = (LEDArt.create_analogous_palette, LEDArt.create_complementary_palette, LEDArt.create_triad_palette, LEDArt.create_analogous_palette)
-        palette = palette_funcs[randint(0, len(palette_funcs) - 1)]()
-        for p in range(self.PASSES):
-            for i in range(self.DOTS):
-                for j in range(len(self.strips)):
-                    self.set_led_color(randint(0, NUM_LEDS-1), palette[randint(0, len(palette)-1)], j)
-
-            self.show()
-            for s in range(10):
-                sleep(.05)
-
-                if not self.state:
-                    self.fade_out()
-                    return
-
-            for strip in self.strips:
-                for i in range(NUM_LEDS):
-                    color = strip.getPixelColor(i)
-                    color = [color >> 16, (color >> 8) & 0xFF, color & 0xFF]
-                    for j in range(3):
-                        color[j] = int(float(color[j]) * self.FADE_CONSTANT)
-                    strip.setPixelColor(i, Color(color[1], color[0], color[2]))
-
-            if not self.state:
-                self.fade_out()
-                return
-
 
     def loop(self):
 
@@ -359,6 +381,7 @@ if __name__ == "__main__":
     a = LEDArt()
     a.add_effect(SolidEffect(a))
     a.add_effect(UndulatingEffect(a))
+    a.add_effect(SparkleEffect(a))
     a.setup()
     try:
         while True:

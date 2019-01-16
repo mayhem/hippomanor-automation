@@ -431,7 +431,7 @@ if __name__ == "__main__":
     a.add_effect(UndulatingEffect(a))
     a.add_effect(SparkleEffect(a))
     a.setup()
-    a.set_state(True)
+    a.set_state(False)
     try:
         while True:
             a.loop()

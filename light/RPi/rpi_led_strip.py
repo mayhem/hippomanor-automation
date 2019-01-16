@@ -47,6 +47,10 @@ class Effect(object):
         pass
 
     @abc.abstractmethod
+    def set_color(self, color):
+        print("Effect.set_color() called!")
+
+    @abc.abstractmethod
     def loop(self):
         pass
 
@@ -62,6 +66,10 @@ class UndulatingEffect(Effect):
         self.uoap_index = 0
         self.uaop_steps = 25
         self.uoap_increment = 1.0 / self.uaop_steps 
+
+
+    def set_color(self, color):
+        print("und set color", r,g,b)
 
 
     def loop(self):
@@ -106,11 +114,16 @@ class DevEffect(Effect):
         self.source_index = 0
         self.num_new_points = 0
         self.palette = []
-        for i, p in enumerate(self.source):
-            self.palette.append( [ i * len(self.source), self.source[self.source_index] ] )
+        for i in range(len(self.source) + 1):
+            self.palette.append( [ float(i) / len(self.source), self.source[self.source_index] ] )
             self.source_index = (self.source_index + 1) % len(self.source)
 
         print(self.palette)
+
+    def set_color(self, color):
+        print("dev set color", r,g,b)
+        self.source = create_triad_palette(color)
+        self.source_index = 0
 
 
     def loop(self):
@@ -168,6 +181,8 @@ class SolidEffect(Effect):
 
 
     def set_color(self, color):
+        print("solid set color", r,g,b)
+
         self.color = color
         self.done = False
 
@@ -193,6 +208,8 @@ class SparkleEffect(Effect):
         self.passes = 0
         self.dots = 0
 
+    def set_color(self, color):
+        print("sprl set color", r,g,b)
 
     @staticmethod
     def create_analogous_palette():
@@ -366,9 +383,9 @@ class LEDArt(object):
         
         if msg.topic == RGB_COLOR_TOPIC:
             r,g,b = payload.split(",")
-            if self.current_effect.name == "solid color":
-                self.current_effect.set_color((int(r),int(g),int(b)))
-
+            color = (int(r),int(g),int(b))
+            print("current effect set color", color)
+            self.current_effect.set_color(color)
             return
            
 

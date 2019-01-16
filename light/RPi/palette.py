@@ -14,8 +14,15 @@ def create_complementary_palette():
     return (make_hsv(r), make_hsv(fmod(r + .5, 1.0)))
 
 
-def create_triad_palette():
-    r = random() / 3.0
+def create_triad_palette(color = None):
+    if not color:
+        r = random() / 3.0
+    else:
+        r, s, v = rgb_to_hsv(float(color[0]) / 255, 
+               float(color[0]) / 255,
+               float(color[0]) / 255)
+        print("Made r from rgb %.3f" % r)
+
     return (make_hsv(r), make_hsv(fmod(r + .333, 1.0)), make_hsv(fmod(r + .666, 1.0)))
 
 

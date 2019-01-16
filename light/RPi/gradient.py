@@ -49,6 +49,6 @@ class Gradient(object):
                         new_color.append(int(self.palette[index-1][1][color] + 
                                 ((self.palette[index][1][color] - self.palette[index-1][1][color]) * percent)))
 
-                    strip.setPixelColor(led, Color(new_color[1], new_color[0], new_color[2]))
+                    strip.setPixelColor(led, Color(min(new_color[1], 255), min(new_color[0], 255), min(new_color[2], 255)))
                     break
 

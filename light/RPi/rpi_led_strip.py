@@ -3,7 +3,7 @@ import sys
 import socket
 import json
 import math
-from random import random, randint
+from random import random, randint, seed
 from math import fmod
 from time import sleep, time
 from neopixel import *
@@ -13,6 +13,7 @@ from colorsys import hsv_to_rgb
 import net_config
 import config
 import gradient
+import palette
 
 CH0_LED_PIN = 21
 CH1_LED_PIN = 13
@@ -89,6 +90,69 @@ class UndulatingEffect(Effect):
             self.uoap_index = 0.0
 
 
+class DevEffect(Effect):
+
+    def __init__(self, led_art):
+        Effect.__init__(self, led_art)
+        self.effect_name = "color cycling"
+        self.palette = []
+        self.point_distance = .25
+        self.render_increment = .01
+
+
+    def setup(self):
+
+        self.source = list(palette.create_random_palette())
+        self.source_index = 0
+        self.num_new_points = 0
+        self.palette = []
+        for i, p in enumerate(self.source):
+            self.palette.append( [ i * len(self.source), self.source[self.source_index] ] )
+            self.source_index = (self.source_index + 1) % len(self.source)
+
+        print(self.palette)
+
+
+    def loop(self):
+
+        try:
+            g = gradient.Gradient(NUM_LEDS, self.palette)
+            g.render(self.led_art.strips[0])
+            g.render(self.led_art.strips[1])
+            self.led_art.show()
+        except ValueError as err:
+            pass
+
+        # Move all the points down a smidge
+        for i in range(len(self.palette)):
+            self.palette[i] = [ self.palette[i][0] + self.render_increment, self.palette[i][1] ]
+
+        # Has my closest point gone over 0.0? Time to insert a new point!
+        if self.palette[0][0] > 0.0:
+            self.palette.insert(0, [ self.palette[0][0] - self.point_distance, self.source[self.source_index]])
+            self.source_index = (self.source_index + 1) % len(self.source)
+        
+            if not self.source:
+                self.source = list(palette.create_random_palette())
+
+            # clean up the point(s) that went out the other end
+            try:
+                while self.palette[-2][0] > 1.0:
+                    self.palette.pop()
+            except IndexError:
+                pass
+
+            if self.num_new_points == 10:
+                self.source = list(palette.create_random_palette())
+                self.source_index = 0
+                self.num_new_points = 0
+
+            self.num_new_points += 1
+
+        sleep(.03)
+
+
+
 
 class SolidEffect(Effect):
 
@@ -110,7 +174,6 @@ class SolidEffect(Effect):
 
     def loop(self):
         if not self.done:
-            print("set color")
             self.led_art.set_color(self.color)
             self.led_art.show()
 
@@ -130,44 +193,24 @@ class SparkleEffect(Effect):
         self.passes = 0
         self.dots = 0
 
-    @staticmethod
-    def make_hsv(hue):
-        (red, green, blue) = hsv_to_rgb(hue, 1.0, 1.0)
-        return (int(red*255), int(green*255), int(blue*266))
-    
-
-    @staticmethod
-    def create_complementary_palette():
-        r = random() / 2.0
-        return (SparkleEffect.make_hsv(r), SparkleEffect.make_hsv(fmod(r + .5, 1.0)))
-
-
-    @staticmethod
-    def create_triad_palette():
-        r = random() / 3.0
-        return (SparkleEffect.make_hsv(r), SparkleEffect.make_hsv(fmod(r + .333, 1.0)), SparkleEffect.make_hsv(fmod(r + .666, 1.0)))
-
 
     @staticmethod
     def create_analogous_palette():
         r = random() / 2.0
         s = random() / 8.0
-        return (SparkleEffect.make_hsv(r),
-                SparkleEffect.make_hsv(fmod(r - s + 1.0, 1.0)),
-                SparkleEffect.make_hsv(fmod(r - (s * 2) + 1.0, 1.0)),
-                SparkleEffect.make_hsv(fmod(r + s, 1.0)),
-                SparkleEffect.make_hsv(fmod(r + (s * 2), 1.0)))
+        return (palette.make_hsv(r),
+                palette.make_hsv(fmod(r - s + 1.0, 1.0)),
+                palette.make_hsv(fmod(r - (s * 2) + 1.0, 1.0)),
+                palette.make_hsv(fmod(r + s, 1.0)),
+                palette.make_hsv(fmod(r + (s * 2), 1.0)))
 
     def loop(self):
 
-        palette_funcs = (SparkleEffect.create_analogous_palette, SparkleEffect.create_complementary_palette, 
-            SparkleEffect.create_triad_palette, SparkleEffect.create_analogous_palette)
-        palette = palette_funcs[randint(0, len(palette_funcs) - 1)]()
-
+        pal = palette.create_random_palette()
         for pss in range(self.PASSES):
             for dot in range(self.DOTS):
                 for j in range(len(self.led_art.strips)):
-                    self.led_art.set_led_color(randint(0, NUM_LEDS-1), palette[randint(0, len(palette)-1)], j)
+                    self.led_art.set_led_color(randint(0, NUM_LEDS-1), pal[randint(0, len(pal)-1)], j)
 
             self.led_art.show()
             for s in range(10):
@@ -217,6 +260,10 @@ class LEDArt(object):
     def clear(self, channel=CHANNEL_BOTH):
         self.set_color((0,0,0), channel)
         self.show(channel)
+
+
+    def set_state(self, state):
+        self.state = state
 
 
     def fade_out(self, channel=CHANNEL_BOTH):
@@ -320,14 +367,13 @@ class LEDArt(object):
         if msg.topic == RGB_COLOR_TOPIC:
             r,g,b = payload.split(",")
             if self.current_effect.name == "solid color":
-                print("set color")
                 self.current_effect.set_color((int(r),int(g),int(b)))
 
             return
            
 
     def setup(self):
-        self.startup()
+        #self.startup()
         self.set_brightness(self.brightness)
 
         effect_name_list = []
@@ -378,11 +424,14 @@ class LEDArt(object):
 
 
 if __name__ == "__main__":
+    seed()
     a = LEDArt()
+    a.add_effect(DevEffect(a))
     a.add_effect(SolidEffect(a))
     a.add_effect(UndulatingEffect(a))
     a.add_effect(SparkleEffect(a))
     a.setup()
+    a.set_state(True)
     try:
         while True:
             a.loop()

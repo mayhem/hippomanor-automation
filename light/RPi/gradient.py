@@ -1,15 +1,33 @@
 from colorsys import hsv_to_rgb
+from math import fabs
 import os
 
 from neopixel import Color
 
 class Gradient(object):
 
-    def __init__(self, num_leds, palette = []):
+    def __init__(self, num_leds, palette):
 
-        # palletes are [ (.345, (128, 0, 128) ]
+        self.FENCEPOST_TOLERANCE = .0001
+
+        # palletes are in format [ (.345, (128, 0, 128)) ]
+        self._validate_palette(palette)
         self.palette = palette
         self.num_leds = num_leds
+
+
+    def _validate_palette(self, palette):
+
+        if len(palette) < 2:
+            raise ValueError("Palette must have at least two points.")
+
+        if palette[0][0] > 0.0:
+            raise ValueError("First point in palette must be less than or equal to 0.0")
+
+        if palette[-1][0] < 1.0:
+            raise ValueError("Last point in palette must be greater than or equal to 1.0")
+
+
 
     def render(self, strip):
 

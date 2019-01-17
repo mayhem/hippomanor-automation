@@ -4,8 +4,8 @@ from math import fmod
 
 
 
-def make_hsv(hue):
-    (red, green, blue) = hsv_to_rgb(hue, 1.0, 1.0)
+def make_hsv(hue, saturation = 1.0, value = 1.0):
+    (red, green, blue) = hsv_to_rgb(hue, saturation, value)
     return (int(red*255), int(green*255), int(blue*266))
 
 

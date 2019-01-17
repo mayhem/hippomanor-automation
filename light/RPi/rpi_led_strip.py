@@ -5,11 +5,11 @@ import json
 import math
 import traceback
 from random import random, randint, seed
-from math import fmod
+from math import fmod, sin, pi
 from time import sleep, time
 from neopixel import *
 import paho.mqtt.client as mqtt
-from colorsys import hsv_to_rgb
+from colorsys import hsv_to_rgb, rgb_to_hsv, rgb_to_hsv
 
 import net_config
 import config
@@ -31,6 +31,7 @@ EFFECT_TOPIC = "home/%s/effect" % config.NODE_ID
 CHANNEL_0     = 0
 CHANNEL_1     = 1
 CHANNEL_BOTH  = 2
+
 
 class Effect(object):
 
@@ -77,7 +78,7 @@ class UndulatingEffect(Effect):
 
     def loop(self):
         t = self.uoap_index * 2 * math.pi
-        jitter = math.sin(t) / 4
+        jitter = sin(t) / 4
         p = [ (0.0, self.colors[0]), 
               (0.45 + jitter, self.colors[1]),
               (0.65 + jitter, self.colors[1]),
@@ -241,6 +242,43 @@ class SparkleEffect(Effect):
                         color[j] = int(float(color[j]) * self.FADE_CONSTANT)
                     strip.setPixelColor(i, Color(color[0], color[1], color[2]))
 
+
+class BootieCallEffect(Effect):
+
+    def __init__(self, led_art):
+        Effect.__init__(self, led_art)
+        self.effect_name = "bootie call"
+
+
+    def setup(self):
+        self.hue = 0.0
+        self.value = 0.0
+        self.value_increment = .001
+        self.next_color = None
+
+
+    def set_color(self, color):
+        self.next_color = color
+
+
+    def loop(self):
+
+        value = (sin(self.value * pi * 2.0) + 1.0) / 3.0
+        color = palette.make_hsv(self.hue, 1.0, value)
+        self.led_art.set_color(color)
+        self.led_art.show()
+        sleep(.05)
+
+        if value < .0000001:
+            if not self.next_color:
+                self.hue = random()
+            else:
+                self.hue, s, v = rgb_to_hsv(float(self.next_color[0]) / 255, 
+                       float(self.next_color[1]) / 255,
+                       float(self.next_color[2]) / 255)
+                self.next_color = None
+
+        self.value += self.value_increment
 
 
 class LEDArt(object):
@@ -445,6 +483,7 @@ class LEDArt(object):
 if __name__ == "__main__":
     seed()
     a = LEDArt()
+    a.add_effect(BootieCallEffect(a))
     a.add_effect(DevEffect(a))
     a.add_effect(SolidEffect(a))
     a.add_effect(UndulatingEffect(a))

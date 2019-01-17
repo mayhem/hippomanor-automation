@@ -290,8 +290,8 @@ class LEDArt(object):
         self.effect_list = []
         self.current_effect = None
 
-        self.strips = [ Adafruit_NeoPixel(NUM_LEDS, CH0_LED_PIN, 700000, 10, False, 255, 0),
-                        Adafruit_NeoPixel(NUM_LEDS, CH1_LED_PIN, 700000, 10, False, 255, 1) ]
+        self.strips = [ Adafruit_NeoPixel(NUM_LEDS, CH0_LED_PIN, 800000, 10, False, 255, 0),
+                        Adafruit_NeoPixel(NUM_LEDS, CH1_LED_PIN, 800000, 10, False, 255, 1) ]
         for s in self.strips:
             s.begin()
 

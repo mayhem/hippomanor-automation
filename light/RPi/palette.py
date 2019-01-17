@@ -1,4 +1,4 @@
-from colorsys import hsv_to_rgb
+from colorsys import hsv_to_rgb, rgb_to_hsv
 from random import randint, random
 from math import fmod
 
@@ -19,9 +19,8 @@ def create_triad_palette(color = None):
         r = random() / 3.0
     else:
         r, s, v = rgb_to_hsv(float(color[0]) / 255, 
-               float(color[0]) / 255,
-               float(color[0]) / 255)
-        print("Made r from rgb %.3f" % r)
+               float(color[1]) / 255,
+               float(color[2]) / 255)
 
     return (make_hsv(r), make_hsv(fmod(r + .333, 1.0)), make_hsv(fmod(r + .666, 1.0)))
 

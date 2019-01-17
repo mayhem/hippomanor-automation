@@ -3,6 +3,7 @@ import sys
 import socket
 import json
 import math
+import traceback
 from random import random, randint, seed
 from math import fmod
 from time import sleep, time
@@ -18,7 +19,6 @@ import palette
 CH0_LED_PIN = 21
 CH1_LED_PIN = 13
 NUM_LEDS = 144 
-WHITE = (77, 52, 25) # consumes about 1.08A @5V for each strip
 
 CLIENT_ID = socket.gethostname()
 DISCOVER_TOPIC = "homeassistant/light/%s/config" % config.NODE_ID
@@ -48,7 +48,7 @@ class Effect(object):
 
     @abc.abstractmethod
     def set_color(self, color):
-        print("Effect.set_color() called!")
+        pass
 
     @abc.abstractmethod
     def loop(self):
@@ -60,33 +60,36 @@ class UndulatingEffect(Effect):
     def __init__(self, led_art):
         Effect.__init__(self, led_art)
         self.effect_name = "undulating colors"
+        self.colors = [(255, 0, 255), (255, 60, 0)]
 
 
     def setup(self):
+        self.color_index = 0
         self.uoap_index = 0
         self.uaop_steps = 25
         self.uoap_increment = 1.0 / self.uaop_steps 
 
 
     def set_color(self, color):
-        print("und set color", r,g,b)
+        self.colors[self.color_index] = color
+        self.color_index = (self.color_index + 1) % 2
 
 
     def loop(self):
         t = self.uoap_index * 2 * math.pi
         jitter = math.sin(t) / 4
-        p = [ (0.0, (255, 0, 255)), 
-              (0.45 + jitter, (255, 60, 0)),
-              (0.65 + jitter, (255, 60, 0)),
-              (1.0, (255, 0, 255))
+        p = [ (0.0, self.colors[0]), 
+              (0.45 + jitter, self.colors[1]),
+              (0.65 + jitter, self.colors[1]),
+              (1.0, self.colors[0])
         ]
         g = gradient.Gradient(NUM_LEDS, p)
         g.render(self.led_art.strips[0])
 
-        p = [ (0.0, (255, 0, 255)), 
-              (0.45 - jitter, (255, 60, 0)),
-              (0.65 - jitter, (255, 60, 0)),
-              (1.0, (255, 0, 255))
+        p = [ (0.0, self.colors[0]), 
+              (0.45 - jitter, self.colors[1]),
+              (0.65 - jitter, self.colors[1]),
+              (1.0, self.colors[0])
         ]
         g = gradient.Gradient(NUM_LEDS, p)
         g.render(self.led_art.strips[1])
@@ -118,11 +121,8 @@ class DevEffect(Effect):
             self.palette.append( [ float(i) / len(self.source), self.source[self.source_index] ] )
             self.source_index = (self.source_index + 1) % len(self.source)
 
-        print(self.palette)
-
     def set_color(self, color):
-        print("dev set color", r,g,b)
-        self.source = create_triad_palette(color)
+        self.source = palette.create_triad_palette(color)
         self.source_index = 0
 
 
@@ -181,7 +181,7 @@ class SolidEffect(Effect):
 
 
     def set_color(self, color):
-        print("solid set color", r,g,b)
+        pass
 
         self.color = color
         self.done = False
@@ -209,7 +209,7 @@ class SparkleEffect(Effect):
         self.dots = 0
 
     def set_color(self, color):
-        print("sprl set color", r,g,b)
+        pass
 
     @staticmethod
     def create_analogous_palette():
@@ -248,7 +248,7 @@ class LEDArt(object):
 
     def __init__(self):
         self.state = False
-        self.brightness = 128
+        self.brightness = 50
         self.effect_list = []
         self.current_effect = None
 
@@ -284,20 +284,24 @@ class LEDArt(object):
 
 
     def fade_out(self, channel=CHANNEL_BOTH):
-        for p in range(7):
-            for strip in self.strips:
-                self._fade_strip(strip, .8)
+        saved_brightness = self.brightness
+        while self.brightness > 0:
+            self.set_brightness(max(self.brightness - 10, 0))
             self.show()
-            sleep(.02)
+
+        self.clear()
+        self.set_brightness(saved_brightness)
 
 
-    def _fade_strip(self, strip, fade):
-        for i in range(NUM_LEDS):
-            color = strip.getPixelColor(i)
-            color = [color >> 16, (color >> 8) & 0xFF, color & 0xFF]
-            for j in range(3):
-                color[j] >>= 1
-            strip.setPixelColor(i, Color(color[0], color[1], color[2]))
+    def fade_in(self, target_brightness, channel=CHANNEL_BOTH):
+        ''' this assumes that brightness has been set to zero and that a patterns is loaded ready to go '''
+
+        brightness_inc = 10
+        while self.brightness + brightness_inc < target_brightness:
+            self.set_brightness(self.brightness + brightness_inc)
+            self.show()
+
+        self.set_brightness(target_brightness)
 
 
     def show(self, channel=CHANNEL_BOTH):
@@ -348,7 +352,10 @@ class LEDArt(object):
 
     @staticmethod
     def on_message(mqttc, user_data, msg):
-        mqttc.__led._handle_message(mqttc, msg)
+        try:
+            mqttc.__led._handle_message(mqttc, msg)
+        except Exception as err:
+            traceback.print_exc(file=sys.stdout)
 
 
     def _handle_message(self, mqttc, msg):
@@ -363,8 +370,11 @@ class LEDArt(object):
 
             if msg.payload.lower() == b"off":
                 self.state = False
+                saved = self.brightness
+                self.fade_out()
+                self.clear()
+                self.set_brightness(saved)
                 mqttc.publish(STATE_TOPIC, "OFF")
-                clear()
                 return
 
             return
@@ -374,17 +384,18 @@ class LEDArt(object):
                 self.set_brightness(int(msg.payload))
             except ValueError:
                 pass
+            return
   
         if msg.topic == EFFECT_TOPIC:
             try:
                 self.set_effect(str(msg.payload, 'utf-8'))
             except ValueError:
                 pass
+            return
         
         if msg.topic == RGB_COLOR_TOPIC:
             r,g,b = payload.split(",")
             color = (int(r),int(g),int(b))
-            print("current effect set color", color)
             self.current_effect.set_color(color)
             return
            
@@ -426,17 +437,8 @@ class LEDArt(object):
 
 
     def loop(self):
-
-        if not self.state:
-            return
-
-        if not self.current_effect:
-            return
-
-        self.current_effect.loop()
-        if not self.state:
-            self.fade_out()
-            return
+        if self.current_effect and self.state:
+            self.current_effect.loop()
 
 
 

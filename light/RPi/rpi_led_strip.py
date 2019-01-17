@@ -25,8 +25,10 @@ DISCOVER_TOPIC = "homeassistant/light/%s/config" % config.NODE_ID
 COMMAND_TOPIC = "home/%s/set" % config.NODE_ID
 STATE_TOPIC = "home/%s/state" % config.NODE_ID
 BRIGHTNESS_TOPIC = "home/%s/brightness" % config.NODE_ID
+BRIGHTNESS_STATE_TOPIC = "home/%s/brightness_state" % config.NODE_ID
 RGB_COLOR_TOPIC = "home/%s/rgb" % config.NODE_ID
 EFFECT_TOPIC = "home/%s/effect" % config.NODE_ID
+REDISCOVER_TOPIC = "rediscover"
 
 CHANNEL_0     = 0
 CHANNEL_1     = 1
@@ -286,7 +288,7 @@ class LEDArt(object):
 
     def __init__(self):
         self.state = False
-        self.brightness = 50
+        self.brightness = 128
         self.effect_list = []
         self.current_effect = None
 
@@ -319,6 +321,11 @@ class LEDArt(object):
 
     def set_state(self, state):
         self.state = state
+        if state:
+            self.mqttc.publish(STATE_TOPIC, "ON")
+            self.mqttc.publish(BRIGHTNESS_STATE_TOPIC, "%d" % self.brightness)
+        else:
+            self.mqttc.publish(STATE_TOPIC, "OFF")
 
 
     def fade_out(self, channel=CHANNEL_BOTH):
@@ -437,14 +444,38 @@ class LEDArt(object):
             self.current_effect.set_color(color)
             return
            
+        if msg.topic == REDISCOVER_TOPIC:
+            self.send_discover_msg()
+            return
 
-    def setup(self):
-        #self.startup()
-        self.set_brightness(self.brightness)
+
+    def send_discover_msg(self):
 
         effect_name_list = []
         for effect in self.effect_list:
             effect_name_list.append(effect.name)
+
+        self.mqttc.publish(DISCOVER_TOPIC, bytes(json.dumps(
+            {
+                "name": config.NODE_NAME, 
+                "command_topic": COMMAND_TOPIC, 
+                "state_topic": STATE_TOPIC, 
+                "device_class": "light",
+                "assumed_state": "true",
+                "brightness" : "true",
+                "brightness_command_topic": BRIGHTNESS_TOPIC,
+#                "brightness_state_topic": BRIGHTNESS_STATE_TOPIC,
+                "effect" : "true",
+                "effect_command_topic": EFFECT_TOPIC,
+                "effect_list": effect_name_list,
+                "rgb_color" : "true",
+                "rgb_command_topic" : RGB_COLOR_TOPIC,
+            }), "utf-8"))
+
+
+    def setup(self):
+        #self.startup()
+        self.set_brightness(self.brightness)
 
         self.mqttc = mqtt.Client(CLIENT_ID)
         self.mqttc.on_message = LEDArt.on_message
@@ -456,21 +487,8 @@ class LEDArt(object):
         self.mqttc.subscribe(BRIGHTNESS_TOPIC)
         self.mqttc.subscribe(EFFECT_TOPIC)
         self.mqttc.subscribe(RGB_COLOR_TOPIC)
-        self.mqttc.publish(DISCOVER_TOPIC, bytes(json.dumps(
-            {
-                "name": config.NODE_NAME, 
-                "command_topic": COMMAND_TOPIC, 
-                "state_topic": STATE_TOPIC, 
-                "device_class": "light",
-                "assumed_state": "true",
-                "brightness" : "true",
-                "brightness_command_topic": BRIGHTNESS_TOPIC,
-                "effect" : "true",
-                "effect_command_topic": EFFECT_TOPIC,
-                "effect_list": effect_name_list,
-                "rgb_color" : "true",
-                "rgb_command_topic" : RGB_COLOR_TOPIC,
-            }), "utf-8"))
+        self.mqttc.subscribe(REDISCOVER_TOPIC)
+        self.send_discover_msg()
 
 
 
@@ -483,10 +501,10 @@ class LEDArt(object):
 if __name__ == "__main__":
     seed()
     a = LEDArt()
-    a.add_effect(BootieCallEffect(a))
     a.add_effect(DevEffect(a))
     a.add_effect(SolidEffect(a))
     a.add_effect(UndulatingEffect(a))
+    a.add_effect(BootieCallEffect(a))
     a.add_effect(SparkleEffect(a))
     a.setup()
     a.set_state(config.TURN_ON_AT_START)

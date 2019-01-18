@@ -1,8 +1,8 @@
 from colorsys import hsv_to_rgb
 from math import fabs
 import os
-
 from neopixel import Color
+
 
 class Gradient(object):
 

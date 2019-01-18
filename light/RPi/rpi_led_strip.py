@@ -14,8 +14,6 @@ from colorsys import hsv_to_rgb, rgb_to_hsv, rgb_to_hsv
 
 import net_config
 import config
-import gradient
-import palette
 
 import solid_effect
 import sparkle_effect
@@ -257,11 +255,12 @@ class LEDArt(object):
 if __name__ == "__main__":
     seed()
     a = LEDArt()
-    a.add_effect(colorcycle_effect.ColorCycleEffect(a))
-    a.add_effect(solid_effect.SolidEffect(a))
-    a.add_effect(undulating_effect.UndulatingEffect(a))
-    a.add_effect(bootie_call_effect.BootieCallEffect(a))
-    a.add_effect(sparkle_effect.SparkleEffect(a))
+    a.add_effect(colorcycle_effect.ColorCycleEffect(a, "color cycle"))
+    a.add_effect(solid_effect.SolidEffect(a, "solid color"))
+    a.add_effect(undulating_effect.UndulatingEffect(a, "undulating colors"))
+    a.add_effect(bootie_call_effect.BootieCallEffect(a, "slow bootie call", .001))
+    a.add_effect(bootie_call_effect.BootieCallEffect(a, "fast bootie call", .01))
+    a.add_effect(sparkle_effect.SparkleEffect(a, "sparkle"))
     a.setup()
     a.set_state(config.TURN_ON_AT_START)
     try:

@@ -13,9 +13,8 @@ import effect
 
 class ColorCycleEffect(effect.Effect):
 
-    def __init__(self, led_art):
-        effect.Effect.__init__(self, led_art)
-        self.effect_name = "color cycling"
+    def __init__(self, led_art, name):
+        effect.Effect.__init__(self, led_art, name)
         self.palette = []
         self.point_distance = .25
         self.render_increment = .01
@@ -40,8 +39,7 @@ class ColorCycleEffect(effect.Effect):
 
         try:
             g = gradient.Gradient(config.NUM_LEDS, self.palette)
-            g.render(self.led_art.strips[0])
-            g.render(self.led_art.strips[1])
+            g.render(self.led_art) 
             self.led_art.show()
         except ValueError as err:
             pass

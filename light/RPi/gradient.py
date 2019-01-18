@@ -3,6 +3,8 @@ from math import fabs
 import os
 from neopixel import Color
 
+from rpi_led_strip import CHANNEL_BOTH
+
 
 class Gradient(object):
 
@@ -29,7 +31,7 @@ class Gradient(object):
 
 
 
-    def render(self, strip):
+    def render(self, led_art, channel = CHANNEL_BOTH):
 
         for led in range(self.num_leds):
             led_offset = float(led) / float(self.num_leds - 1)
@@ -49,6 +51,6 @@ class Gradient(object):
                         new_color.append(int(self.palette[index-1][1][color] + 
                                 ((self.palette[index][1][color] - self.palette[index-1][1][color]) * percent)))
 
-                    strip.setPixelColor(led, Color(min(new_color[1], 255), min(new_color[0], 255), min(new_color[2], 255)))
+                    led_art.set_led_color(led, (min(new_color[0], 255), min(new_color[1], 255), min(new_color[2], 255)), channel)
                     break
 

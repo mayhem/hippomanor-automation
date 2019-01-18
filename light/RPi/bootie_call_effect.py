@@ -28,7 +28,7 @@ class BootieCallEffect(effect.Effect):
 
     def loop(self):
 
-        value = (sin(self.value * pi * 2.0) + 1.0) / 3.0
+        value = (sin(self.value * pi * 2.0) + 1.0) / 6.0
         color = palette.make_hsv(self.hue, 1.0, value)
 
         if self.gamma_correct:
@@ -36,7 +36,7 @@ class BootieCallEffect(effect.Effect):
 
         self.led_art.set_color(color)
         self.led_art.show()
-        sleep(.05)
+        sleep(.001)
 
         if value < .0000001:
             if not self.next_color:

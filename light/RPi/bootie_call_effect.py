@@ -17,7 +17,7 @@ class BootieCallEffect(effect.Effect):
 
 
     def setup(self):
-        self.hue = 0.0
+        self.hue = random()
         self.value = 0.0
         self.next_color = None
 

@@ -256,14 +256,14 @@ class LEDArt(object):
 if __name__ == "__main__":
     seed()
     a = LEDArt()
-    a.add_effect(strobe_effect.StrobeEffect(a, "slow strobe", 2, .02))
-    a.add_effect(strobe_effect.StrobeEffect(a, "fast strobe", 8, .03))
     a.add_effect(colorcycle_effect.ColorCycleEffect(a, "color cycle"))
     a.add_effect(solid_effect.SolidEffect(a, "solid color"))
     a.add_effect(undulating_effect.UndulatingEffect(a, "undulating colors"))
     a.add_effect(bootie_call_effect.BootieCallEffect(a, "slow bootie call", .0005))
     a.add_effect(bootie_call_effect.BootieCallEffect(a, "fast bootie call", .005))
     a.add_effect(sparkle_effect.SparkleEffect(a, "sparkle"))
+    a.add_effect(strobe_effect.StrobeEffect(a, "slow strobe", 2, .02))
+    a.add_effect(strobe_effect.StrobeEffect(a, "fast strobe", 8, .03))
     a.setup()
     a.set_state(config.TURN_ON_AT_START)
     try:

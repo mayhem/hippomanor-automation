@@ -20,6 +20,7 @@ import sparkle_effect
 import undulating_effect
 import colorcycle_effect
 import bootie_call_effect
+import strobe_effect
 
 
 CLIENT_ID = socket.gethostname()
@@ -255,6 +256,8 @@ class LEDArt(object):
 if __name__ == "__main__":
     seed()
     a = LEDArt()
+    a.add_effect(strobe_effect.StrobeEffect(a, "slow strobe", 2, .02))
+    a.add_effect(strobe_effect.StrobeEffect(a, "fast strobe", 8, .03))
     a.add_effect(colorcycle_effect.ColorCycleEffect(a, "color cycle"))
     a.add_effect(solid_effect.SolidEffect(a, "solid color"))
     a.add_effect(undulating_effect.UndulatingEffect(a, "undulating colors"))

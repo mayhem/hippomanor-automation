@@ -1,5 +1,5 @@
 import math
-from random import random, randint, seed
+from random import random, randint, seed, uniform
 from math import fmod, sin, pi
 from time import sleep, time
 from colorsys import hsv_to_rgb, rgb_to_hsv, rgb_to_hsv
@@ -23,7 +23,7 @@ class TestEffect(effect.Effect):
     def fill_source(self):
         base_source = list(palette.create_random_palette())
         print(base_source)
-        for i in range(6):
+        for i in range(5):
             self.source.extend(base_source)
 
 
@@ -34,7 +34,7 @@ class TestEffect(effect.Effect):
         self.fill_source()
         self.point_distance = 1.0 / len(self.source)
         for i in range(len(self.source)):
-            self.palette.append( [ self.point_distance * i , self.source.pop(0) ] )
+            self.palette.append( [ self.get_point_distance() * i , self.source.pop(0) ] )
 
         self.fill_source()
 
@@ -57,6 +57,10 @@ class TestEffect(effect.Effect):
         print()
 
 
+    def get_point_distance(self):
+        return uniform(self.point_distance / 2.0, self.point_distance)
+
+
     def loop(self):
 
         try:
@@ -69,7 +73,7 @@ class TestEffect(effect.Effect):
         if self.direction:
             self.move_points(self.render_increment)
             if self.palette[0][0] > 0.0:
-                self.palette.insert(0, [ self.palette[0][0] - self.point_distance, self.source.pop(0)])
+                self.palette.insert(0, [ self.palette[0][0] - self.get_point_distance(), self.source.pop(0)])
             try:
                 while self.palette[-2][0] > 1.0:
                     self.palette.pop()
@@ -78,7 +82,7 @@ class TestEffect(effect.Effect):
         else:
             self.move_points(-self.render_increment)
             if self.palette[-1][0] < 1.0:
-                self.palette.append([self.palette[-1][0] + self.point_distance, self.source.pop(0)])
+                self.palette.append([self.palette[-1][0] + self.get_point_distance(), self.source.pop(0)])
             try:
                 while self.palette[1][0] < 0.0:
                     self.palette.pop(0)

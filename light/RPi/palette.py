@@ -27,7 +27,7 @@ def create_triad_palette(color = None):
 
 def create_analogous_palette():
     r = random() / 2.0
-    s = random() / 8.0
+    s = (random() / 5.0) + .05
     return (make_hsv(r),
             make_hsv(fmod(r - s + 1.0, 1.0)),
             make_hsv(fmod(r - (s * 2) + 1.0, 1.0)),

@@ -21,6 +21,7 @@ import undulating_effect
 import colorcycle_effect
 import bootie_call_effect
 import strobe_effect
+import test_effect
 
 
 CLIENT_ID = socket.gethostname()
@@ -256,6 +257,7 @@ class LEDArt(object):
 if __name__ == "__main__":
     seed()
     a = LEDArt()
+    a.add_effect(test_effect.TestEffect(a, "test color cycle"))
     a.add_effect(colorcycle_effect.ColorCycleEffect(a, "color cycle"))
     a.add_effect(solid_effect.SolidEffect(a, "solid color"))
     a.add_effect(undulating_effect.UndulatingEffect(a, "undulating colors"))

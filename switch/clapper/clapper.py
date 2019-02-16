@@ -11,7 +11,9 @@ import net_config
 import _config as config
 
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
-COMMAND_TOPIC = b"home/%s/set" % config.NODE_ID
+# modified
+COMMAND_TOPIC = b"lips/command"
+#COMMAND_TOPIC = b"home/%s/set" % config.NODE_ID
 STATE_TOPIC = b"home/%s/state" % config.NODE_ID
 DISCOVER_TOPIC = b"homeassistant/switch/%s/config" % config.NODE_ID
 REDISCOVER_TOPIC = b"rediscover"
@@ -47,8 +49,9 @@ class ServiceObject(object):
 
 
     def handle_message(self, topic, msg):
-        if topic == REDISCOVER_TOPIC:
-            self.send_discover_msg()
+        pass
+#        if topic == REDISCOVER_TOPIC:
+#            self.send_discover_msg()
 
 
     def add_or_replace_sample(self, value):
@@ -121,7 +124,7 @@ class ServiceObject(object):
 
         self.client.set_callback(handle_message)
         self.client.connect()
-        self.send_discover_msg()
+#        self.send_discover_msg()
 
 
 
@@ -163,7 +166,7 @@ class ServiceObject(object):
             elif len(self.peaks) == 2:
                 self.set_color(0, 16, 0)
             elif len(self.peaks) == 3:
-                self.set_color(0, 0, cw1664)
+                self.set_color(0, 0, 16)
             else:
                 self.clear_state()
                 return
@@ -183,15 +186,10 @@ class ServiceObject(object):
 
                 if len(self.peaks) == 2:
                     self.states[0] = not self.states[0]
-                    if self.states[0]:
-#                        self.client.publish(COMMAND_TOPIC, "ON")
-                        self.client.publish("home/bedroom-leds/state, "ON")
-                    else:
-#                        self.client.publish(COMMAND_TOPIC, "OFF")
-                        self.client.publish("home/bedroom-leds/state, "OFF)
+                    self.client.publish(COMMAND_TOPIC, "TOGGLE")
 
                 if len(self.peaks) == 3:
-                    pass
+                    self.client.publish(COMMAND_TOPIC, "MODE")
 
                 self.clear_state()
 

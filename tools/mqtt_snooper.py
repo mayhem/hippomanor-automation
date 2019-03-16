@@ -10,6 +10,8 @@ def on_message(mqttc, obj, msg):
 # id parameter empty will generate a random id for you.
 mqttc = mqtt.Client()
 mqttc.on_message = on_message
+print("connecting...")
 mqttc.connect("10.1.1.2", 1883, 60)
+print("listening....")
 mqttc.subscribe("#", 0)
 mqttc.loop_forever()

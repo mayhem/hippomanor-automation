@@ -22,9 +22,10 @@ for f in sorted(os.listdir()):
     try:
         print("starting module %s" % config.SCRIPT)
         m = __import__(config.SCRIPT)
-        m.setup()
+        o = m.ServiceObject()
+        o.setup()
         while True:
-            m.loop()
+            o.loop()
 
     except ImportError as err:
         print("Cannot import module %s.\n%s\nTrying the next one..." % (f, err))

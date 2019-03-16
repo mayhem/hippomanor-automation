@@ -22,7 +22,6 @@ class TestEffect(effect.Effect):
 
     def fill_source(self):
         base_source = list(palette.create_random_palette())
-        print(base_source)
         for i in range(5):
             self.source.extend(base_source)
 

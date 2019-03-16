@@ -25,14 +25,13 @@ import test_effect
 
 
 CLIENT_ID = socket.gethostname()
-DISCOVER_TOPIC = "homeassistant/light/%s/config" % config.NODE_ID
-COMMAND_TOPIC = "home/%s/set" % config.NODE_ID
-STATE_TOPIC = "home/%s/state" % config.NODE_ID
-BRIGHTNESS_TOPIC = "home/%s/brightness" % config.NODE_ID
-BRIGHTNESS_STATE_TOPIC = "home/%s/brightness_state" % config.NODE_ID
-RGB_COLOR_TOPIC = "home/%s/rgb" % config.NODE_ID
-EFFECT_TOPIC = "home/%s/effect" % config.NODE_ID
-REDISCOVER_TOPIC = "rediscover"
+# modified!
+COMMAND_TOPIC = "%s/command" % config.NODE_ID
+STATE_TOPIC = "%s/state" % config.NODE_ID 
+BRIGHTNESS_TOPIC = "%s/brightness" % config.NODE_ID
+BRIGHTNESS_STATE_TOPIC = "%s/brightness_state" % config.NODE_ID
+RGB_COLOR_TOPIC = "%s/rgb" % config.NODE_ID
+EFFECT_TOPIC = "%s/effect" % config.NODE_ID
 
 CHANNEL_0     = 0
 CHANNEL_1     = 1
@@ -47,6 +46,7 @@ class LEDArt(object):
         self.brightness = 128
         self.effect_list = []
         self.current_effect = None
+        self.current_effect_index = -1
 
         self.strips = [ Adafruit_NeoPixel(config.NUM_LEDS, config.CH0_LED_PIN, 800000, 10, False, 255, 0),
                         Adafruit_NeoPixel(config.NUM_LEDS, config.CH1_LED_PIN, 800000, 10, False, 255, 1) ]
@@ -120,13 +120,14 @@ class LEDArt(object):
 
 
     def set_effect(self, effect_name):
-        for effect in self.effect_list:
+        for i, effect in enumerate(self.effect_list):
             if effect.name == effect_name:
                 saved_state = self.state
                 self.state = False
                 self.fade_out()
                 self.current_effect = effect 
                 self.current_effect.setup()
+                self.current_effect_index = i
                 self.state = saved_state
                 break
 
@@ -135,6 +136,11 @@ class LEDArt(object):
         self.effect_list.append(effect)
         if len(self.effect_list) == 1:
             self.set_effect(str(effect.name))
+
+
+    def next_effect(self):
+        index = (self.current_effect_index + 1) % len(self.effect_list)
+        self.set_effect(str(self.effect_list[index].name))
 
 
     def startup(self):
@@ -162,11 +168,14 @@ class LEDArt(object):
     def _handle_message(self, mqttc, msg):
 
         payload = str(msg.payload, 'utf-8')
-        print("handle %s - %s" % (msg.topic, msg.payload))
+        print(msg.topic)
         if msg.topic == COMMAND_TOPIC:
+            if msg.payload.lower() == b"mode":
+                self.next_effect()
+                return
+
             if msg.payload.lower() == b"on":
                 self.state = True
-                mqttc.publish(STATE_TOPIC, "ON")
                 return
 
             if msg.payload.lower() == b"off":
@@ -175,8 +184,19 @@ class LEDArt(object):
                 self.fade_out()
                 self.clear()
                 self.set_brightness(saved)
-                mqttc.publish(STATE_TOPIC, "OFF")
                 return
+
+            if msg.payload.lower() == b"toggle":
+                if self.state:
+                    self.state = False
+                    saved = self.brightness
+                    self.fade_out()
+                    self.clear()
+                    self.set_brightness(saved)
+                    return
+                else:
+                    self.state = True
+                    return
 
             return
 
@@ -200,33 +220,6 @@ class LEDArt(object):
             self.current_effect.set_color(color)
             return
            
-        if msg.topic == REDISCOVER_TOPIC:
-            self.send_discover_msg()
-            return
-
-
-    def send_discover_msg(self):
-
-        effect_name_list = []
-        for effect in self.effect_list:
-            effect_name_list.append(effect.name)
-
-        self.mqttc.publish(DISCOVER_TOPIC, bytes(json.dumps(
-            {
-                "name": config.NODE_NAME, 
-                "command_topic": COMMAND_TOPIC, 
-                "state_topic": STATE_TOPIC, 
-                "device_class": "light",
-                "assumed_state": "true",
-                "brightness" : "true",
-                "brightness_command_topic": BRIGHTNESS_TOPIC,
-#                "brightness_state_topic": BRIGHTNESS_STATE_TOPIC,
-                "effect" : "true",
-                "effect_command_topic": EFFECT_TOPIC,
-                "effect_list": effect_name_list,
-                "rgb_color" : "true",
-                "rgb_command_topic" : RGB_COLOR_TOPIC,
-            }), "utf-8"))
 
 
     def setup(self):
@@ -235,17 +228,19 @@ class LEDArt(object):
 
         self.mqttc = mqtt.Client(CLIENT_ID)
         self.mqttc.on_message = LEDArt.on_message
+        print("connect to mqtt server...")
         self.mqttc.connect("10.1.1.2", 1883, 60)
         self.mqttc.loop_start()
         self.mqttc.__led = self
 
+        effect_name_list = []
+        for effect in self.effect_list:
+            effect_name_list.append(effect.name)
+
         self.mqttc.subscribe(COMMAND_TOPIC)
         self.mqttc.subscribe(BRIGHTNESS_TOPIC)
-        self.mqttc.subscribe(EFFECT_TOPIC)
-        self.mqttc.subscribe(RGB_COLOR_TOPIC)
-        self.mqttc.subscribe(REDISCOVER_TOPIC)
-        self.send_discover_msg()
-
+#        self.mqttc.subscribe(EFFECT_TOPIC)
+#        self.mqttc.subscribe(RGB_COLOR_TOPIC)
 
 
     def loop(self):
@@ -257,15 +252,16 @@ class LEDArt(object):
 if __name__ == "__main__":
     seed()
     a = LEDArt()
+    a.add_effect(undulating_effect.UndulatingEffect(a, "undulating colors"))
     a.add_effect(test_effect.TestEffect(a, "test color cycle"))
     a.add_effect(colorcycle_effect.ColorCycleEffect(a, "color cycle"))
-    a.add_effect(solid_effect.SolidEffect(a, "solid color"))
-    a.add_effect(undulating_effect.UndulatingEffect(a, "undulating colors"))
-    a.add_effect(bootie_call_effect.BootieCallEffect(a, "slow bootie call", .0005))
-    a.add_effect(bootie_call_effect.BootieCallEffect(a, "fast bootie call", .005))
-    a.add_effect(sparkle_effect.SparkleEffect(a, "sparkle"))
-    a.add_effect(strobe_effect.StrobeEffect(a, "slow strobe", 2, .02))
-    a.add_effect(strobe_effect.StrobeEffect(a, "fast strobe", 8, .03))
+
+#    a.add_effect(solid_effect.SolidEffect(a, "solid color"))
+#    a.add_effect(bootie_call_effect.BootieCallEffect(a, "slow bootie call", .0005))
+#    a.add_effect(bootie_call_effect.BootieCallEffect(a, "fast bootie call", .005))
+#    a.add_effect(sparkle_effect.SparkleEffect(a, "sparkle"))
+#    a.add_effect(strobe_effect.StrobeEffect(a, "slow strobe", 2, .02))
+#    a.add_effect(strobe_effect.StrobeEffect(a, "fast strobe", 8, .03))
     a.setup()
     a.set_state(config.TURN_ON_AT_START)
     try:
@@ -273,6 +269,5 @@ if __name__ == "__main__":
             a.loop()
     except KeyboardInterrupt:
         a.fade_out()
-        a.mqttc.publish(DISCOVER_TOPIC, "")
         a.mqttc.disconnect()
         a.mqttc.loop_stop()

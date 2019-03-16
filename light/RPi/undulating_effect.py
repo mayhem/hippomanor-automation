@@ -12,7 +12,7 @@ class UndulatingEffect(effect.Effect):
 
     def __init__(self, led_art, name):
         effect.Effect.__init__(self, led_art, name)
-        self.colors = [(255, 0, 255), (255, 60, 0)]
+        self.colors = [(60, 0, 0), (50, 20, 0)]
 
 
     def setup(self):

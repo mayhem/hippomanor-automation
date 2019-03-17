@@ -15,13 +15,6 @@ from colorsys import hsv_to_rgb, rgb_to_hsv, rgb_to_hsv
 import net_config
 import config
 
-import solid_effect
-import sparkle_effect
-import undulating_effect
-import colorcycle_effect
-import bootie_call_effect
-import strobe_effect
-import test_effect
 
 
 CLIENT_ID = socket.gethostname()
@@ -37,6 +30,15 @@ CHANNEL_0     = 0
 CHANNEL_1     = 1
 CHANNEL_BOTH  = 2
 
+import solid_effect
+import sparkle_effect
+import undulating_effect
+import colorcycle_effect
+import bootie_call_effect
+import strobe_effect
+import test_effect
+import chill_bed_time_effect
+import dynamic_color_cycle
 
 class LEDArt(object):
 
@@ -252,16 +254,18 @@ class LEDArt(object):
 if __name__ == "__main__":
     seed()
     a = LEDArt()
-    a.add_effect(undulating_effect.UndulatingEffect(a, "undulating colors"))
-    a.add_effect(test_effect.TestEffect(a, "test color cycle"))
-    a.add_effect(colorcycle_effect.ColorCycleEffect(a, "color cycle"))
+    a.add_effect(test_effect.TestEffect(a))
+    a.add_effect(chill_bed_time_effect.ChillBedTimeEffect(a))
+    a.add_effect(dynamic_color_cycle.DynamicColorCycleEffect(a))
 
-#    a.add_effect(solid_effect.SolidEffect(a, "solid color"))
-#    a.add_effect(bootie_call_effect.BootieCallEffect(a, "slow bootie call", .0005))
-#    a.add_effect(bootie_call_effect.BootieCallEffect(a, "fast bootie call", .005))
+#    a.add_effect(solid_effect.SolidEffect(a)
 #    a.add_effect(sparkle_effect.SparkleEffect(a, "sparkle"))
-#    a.add_effect(strobe_effect.StrobeEffect(a, "slow strobe", 2, .02))
-#    a.add_effect(strobe_effect.StrobeEffect(a, "fast strobe", 8, .03))
+#    a.add_effect(undulating_effect.UndulatingEffect(a, "undulating colors"))
+
+#    a.add_effect(bootie_call_effect.BootieCallEffect(a, .0005))
+#    a.add_effect(bootie_call_effect.BootieCallEffect(a, .005))
+#    a.add_effect(strobe_effect.StrobeEffect(a, 2, .02))
+#    a.add_effect(strobe_effect.StrobeEffect(a, 8, .03))
     a.setup()
     a.set_state(config.TURN_ON_AT_START)
     try:

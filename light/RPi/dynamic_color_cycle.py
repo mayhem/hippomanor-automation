@@ -11,23 +11,20 @@ import palette
 import effect
 
 
-class TestEffect(effect.Effect):
+class DynamicColorCycleEffect(effect.Effect):
 
-    NAME = "test effect"
-
-    # variables
-    COLOR_CYCLE_REPETITIONS = 15
-    DISTANCE_PER_FRAME = .005
+    NAME = "dynamic color cycle"
 
     def __init__(self, led_art):
         effect.Effect.__init__(self, led_art, self.NAME)
         self.palette = []
+        self.render_increment = .005
         self.direction = 1
 
 
     def fill_source(self):
-        base_source = list(palette.create_analogous_palette(17.0, 0.04))
-        for i in range(self.COLOR_CYCLE_REPETITIONS):
+        base_source = list(palette.create_random_palette())
+        for i in range(5):
             self.source.extend(base_source)
 
 
@@ -46,9 +43,6 @@ class TestEffect(effect.Effect):
     def set_color(self, color):
         self.source = palette.create_triad_palette(color)
         self.source_index = 0
-
-    def next_distance(self):
-        pass
 
 
     def move_points(self, increment):
@@ -78,7 +72,7 @@ class TestEffect(effect.Effect):
             pass
 
         if self.direction:
-            self.move_points(self.DISTANCE_PER_FRAME)
+            self.move_points(self.render_increment)
             if self.palette[0][0] > 0.0:
                 self.palette.insert(0, [ self.palette[0][0] - self.get_point_distance(), self.source.pop(0)])
             try:
@@ -87,7 +81,7 @@ class TestEffect(effect.Effect):
             except IndexError:
                 pass
         else:
-            self.move_points(-self.DISTANCE_PER_FRAME)
+            self.move_points(-self.render_increment)
             if self.palette[-1][0] < 1.0:
                 self.palette.append([self.palette[-1][0] + self.get_point_distance(), self.source.pop(0)])
             try:

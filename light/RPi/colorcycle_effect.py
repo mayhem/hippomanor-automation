@@ -13,8 +13,10 @@ import effect
 
 class ColorCycleEffect(effect.Effect):
 
-    def __init__(self, led_art, name):
-        effect.Effect.__init__(self, led_art, name)
+    NAME = "color cycle"
+
+    def __init__(self, led_art):
+        effect.Effect.__init__(self, led_art, self.NAME)
         self.palette = []
         self.point_distance = .25
         self.render_increment = .01

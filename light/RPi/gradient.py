@@ -3,9 +3,6 @@ from math import fabs
 import os
 from neopixel import Color
 
-from rpi_led_strip import CHANNEL_BOTH
-
-
 class Gradient(object):
 
     def __init__(self, num_leds, palette):
@@ -31,7 +28,7 @@ class Gradient(object):
 
 
 
-    def render(self, led_art, channel = CHANNEL_BOTH):
+    def render(self, led_art, channel):
 
         for led in range(self.num_leds):
             led_offset = float(led) / float(self.num_leds - 1)

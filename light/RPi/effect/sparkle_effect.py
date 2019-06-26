@@ -8,8 +8,10 @@ import effect
 
 class SparkleEffect(effect.Effect):
 
-    def __init__(self, led_art, name):
-        effect.Effect.__init__(self, led_art, name)
+    NAME = "sparkle"
+
+    def __init__(self, led_art):
+        effect.Effect.__init__(self, led_art, self.NAME)
         self.FADE_CONSTANT = .65
         self.PASSES = 35
         self.DOTS = 10

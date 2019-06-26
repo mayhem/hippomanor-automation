@@ -3,7 +3,6 @@ from random import random, randint, seed, uniform
 from math import fmod, sin, pi
 from time import sleep, time
 from colorsys import hsv_to_rgb, rgb_to_hsv, rgb_to_hsv
-import undulating_effect
 
 import config
 import gradient
@@ -11,9 +10,9 @@ import palette
 import effect
 
 
-class TestEffect(effect.Effect):
+class DynamicColorCycleEffect(effect.Effect):
 
-    NAME = "test effect"
+    NAME = "dynamic"
 
     # variables
     COLOR_CYCLE_REPETITIONS = 15

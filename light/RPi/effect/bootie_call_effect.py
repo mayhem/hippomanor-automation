@@ -10,8 +10,10 @@ import effect
 
 class BootieCallEffect(effect.Effect):
 
-    def __init__(self, led_art, name, value_increment = .01, gamma_correct = False):
-        effect.Effect.__init__(self, led_art, name)
+    NAME = "bootiecall"
+
+    def __init__(self, led_art, value_increment = .01, gamma_correct = False):
+        effect.Effect.__init__(self, led_art, self.NAME)
         self.gamma_correct = gamma_correct
         self.value_increment = value_increment
 

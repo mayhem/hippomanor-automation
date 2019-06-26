@@ -5,13 +5,15 @@ import config
 import gradient
 import palette
 import effect
-from rpi_led_strip import CHANNEL_0, CHANNEL_1, CHANNEL_BOTH
+from lips import CHANNEL_0, CHANNEL_1, CHANNEL_BOTH
 
 
 class UndulatingEffect(effect.Effect):
 
-    def __init__(self, led_art, name):
-        effect.Effect.__init__(self, led_art, name)
+    NAME = "undulating"
+
+    def __init__(self, led_art):
+        effect.Effect.__init__(self, led_art, self.NAME)
         self.colors = [(255, 0, 0), (210, 70, 0)]
 
 

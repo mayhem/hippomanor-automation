@@ -23,29 +23,30 @@ COMMAND_TOPIC = "%s/command" % config.NODE_ID
 STATE_TOPIC = "%s/state" % config.NODE_ID 
 BRIGHTNESS_TOPIC = "%s/brightness" % config.NODE_ID
 BRIGHTNESS_STATE_TOPIC = "%s/brightness_state" % config.NODE_ID
-RGB_COLOR_TOPIC = "%s/rgb" % config.NODE_ID
+COLOR_TOPIC = "%s/color" % config.NODE_ID
+COLOR_STATE_TOPIC = "%s/color_state" % config.NODE_ID
 EFFECT_TOPIC = "%s/effect" % config.NODE_ID
 
 CHANNEL_0     = 0
 CHANNEL_1     = 1
 CHANNEL_BOTH  = 2
 
-import solid_effect
-import sparkle_effect
-import undulating_effect
-import colorcycle_effect
-import bootie_call_effect
-import strobe_effect
-import test_effect
-import chill_bed_time_effect
-import dynamic_color_cycle
+from effect import solid_effect
+from effect import sparkle_effect
+from effect import undulating_effect
+from effect import colorcycle_effect
+from effect import bootie_call_effect
+from effect import strobe_effect
+from effect import test_effect
+from effect import chill_bed_time_effect
+from effect import dynamic_colorcycle_effect
 
-class LEDArt(object):
+class Lips(object):
 
 
     def __init__(self):
         self.state = False
-        self.brightness = 128
+        self.brightness = 32
         self.effect_list = []
         self.current_effect = None
         self.current_effect_index = -1
@@ -56,6 +57,13 @@ class LEDArt(object):
             s.begin()
 
         self.mqttc = None
+
+    def publish(self, topic, payload):
+        if not self.mqttc:
+            return
+
+        self.mqttc.publish(topic, payload)
+
 
     def set_color(self, col, channel=CHANNEL_BOTH):
         for i in range(config.NUM_LEDS):
@@ -80,10 +88,10 @@ class LEDArt(object):
     def set_state(self, state):
         self.state = state
         if state:
-            self.mqttc.publish(STATE_TOPIC, "ON")
-            self.mqttc.publish(BRIGHTNESS_STATE_TOPIC, "%d" % self.brightness)
+            self.publish(STATE_TOPIC, "1")
+            self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % self.brightness)
         else:
-            self.mqttc.publish(STATE_TOPIC, "OFF")
+            self.publish(STATE_TOPIC, "0")
 
 
     def fade_out(self, channel=CHANNEL_BOTH):
@@ -119,6 +127,7 @@ class LEDArt(object):
         for strip in self.strips:
             strip.setBrightness(brightness)
             strip.show()
+        self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % brightness)
 
 
     def set_effect(self, effect_name):
@@ -132,6 +141,8 @@ class LEDArt(object):
                 self.current_effect_index = i
                 self.state = saved_state
                 break
+        else:
+            print("Unknown effect %s" % effect_name)
 
 
     def add_effect(self, effect):
@@ -210,16 +221,17 @@ class LEDArt(object):
             return
   
         if msg.topic == EFFECT_TOPIC:
+            effect = str(msg.payload, 'utf-8')
             try:
-                self.set_effect(str(msg.payload, 'utf-8'))
+                self.set_effect(effect)
             except ValueError:
-                pass
+                print("Invalid effect: '%s'" % effect)
             return
         
-        if msg.topic == RGB_COLOR_TOPIC:
-            r,g,b = payload.split(",")
-            color = (int(r),int(g),int(b))
+        if msg.topic == COLOR_TOPIC:
+            color = (int(msg.payload[1:3], 16),int(msg.payload[3:5], 16),int(msg.payload[5:7], 16))
             self.current_effect.set_color(color)
+            self.publish(COLOR_STATE_TOPIC, msg.payload)
             return
            
 
@@ -229,20 +241,20 @@ class LEDArt(object):
         self.set_brightness(self.brightness)
 
         self.mqttc = mqtt.Client(CLIENT_ID)
-        self.mqttc.on_message = LEDArt.on_message
-        print("connect to mqtt server...")
+        self.mqttc.on_message = Lips.on_message
         self.mqttc.connect("10.1.1.2", 1883, 60)
         self.mqttc.loop_start()
         self.mqttc.__led = self
 
         effect_name_list = []
         for effect in self.effect_list:
+            print("adding effect %s" % effect.name)
             effect_name_list.append(effect.name)
 
         self.mqttc.subscribe(COMMAND_TOPIC)
         self.mqttc.subscribe(BRIGHTNESS_TOPIC)
-#        self.mqttc.subscribe(EFFECT_TOPIC)
-#        self.mqttc.subscribe(RGB_COLOR_TOPIC)
+        self.mqttc.subscribe(EFFECT_TOPIC)
+        self.mqttc.subscribe(COLOR_TOPIC)
 
 
     def loop(self):
@@ -253,19 +265,15 @@ class LEDArt(object):
 
 if __name__ == "__main__":
     seed()
-    a = LEDArt()
-    a.add_effect(test_effect.TestEffect(a))
+    a = Lips()
+#    a.add_effect(test_effect.TestEffect(a))
     a.add_effect(chill_bed_time_effect.ChillBedTimeEffect(a))
-    a.add_effect(dynamic_color_cycle.DynamicColorCycleEffect(a))
+    a.add_effect(dynamic_colorcycle_effect.DynamicColorCycleEffect(a))
+    a.add_effect(solid_effect.SolidEffect(a))
+    a.add_effect(sparkle_effect.SparkleEffect(a))
+    a.add_effect(undulating_effect.UndulatingEffect(a))
+    a.add_effect(bootie_call_effect.BootieCallEffect(a, .0005))
 
-#    a.add_effect(solid_effect.SolidEffect(a)
-#    a.add_effect(sparkle_effect.SparkleEffect(a, "sparkle"))
-#    a.add_effect(undulating_effect.UndulatingEffect(a, "undulating colors"))
-
-#    a.add_effect(bootie_call_effect.BootieCallEffect(a, .0005))
-#    a.add_effect(bootie_call_effect.BootieCallEffect(a, .005))
-#    a.add_effect(strobe_effect.StrobeEffect(a, 2, .02))
-#    a.add_effect(strobe_effect.StrobeEffect(a, 8, .03))
     a.setup()
     a.set_state(config.TURN_ON_AT_START)
     try:

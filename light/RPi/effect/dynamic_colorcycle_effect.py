@@ -43,8 +43,7 @@ class DynamicColorCycleEffect(effect.Effect):
 
 
     def set_color(self, color):
-        self.source = palette.create_triad_palette(color)
-        self.source_index = 0
+        self.source[0] = color
 
     def next_distance(self):
         pass

@@ -18,26 +18,18 @@ class TestEffect(effect.Effect):
         effect.Effect.__init__(self, led_art, self.NAME)
 
 
-    def _get_next_color(self):
-        if not self.source or not len(self.source):
-            self.source = list(palette.create_analogous_palette())
-
-        return self.source.pop(0)
-
-
     def setup(self):
         self.palette = []
-        self.source = []
+        self.source = list(palette.create_sleepy_analogous_palette(12, .25))
         self.scale = 1.0
         self.offset = 0.0
         self.t = 0
 
         point_distance = 1.0 / self.POINTS
         for i in range(self.POINTS):
-            self.palette.append( [ point_distance * i , self._get_next_color() ] )
+            self.palette.append( [ point_distance * i , self.source[ i % len(self.source) ] ] )
 
         self.palette.append( [ point_distance * self.POINTS , self.palette[0][1] ] )
-        self.print_palette(self.palette)
 
 
     def set_color(self, color):

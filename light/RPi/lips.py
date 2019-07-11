@@ -266,7 +266,7 @@ class Lips(object):
 if __name__ == "__main__":
     seed()
     a = Lips()
-#    a.add_effect(test_effect.TestEffect(a))
+    a.add_effect(test_effect.TestEffect(a))
     a.add_effect(chill_bed_time_effect.ChillBedTimeEffect(a))
     a.add_effect(dynamic_colorcycle_effect.DynamicColorCycleEffect(a))
     a.add_effect(solid_effect.SolidEffect(a))

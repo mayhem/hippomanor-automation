@@ -1,5 +1,5 @@
 from colorsys import hsv_to_rgb
-from math import fabs
+from math import fabs, fmod
 import os
 from neopixel import Color
 
@@ -13,6 +13,8 @@ class Gradient(object):
         self._validate_palette(palette)
         self.palette = palette
         self.num_leds = num_leds
+        self.led_scale = 1.0
+        self.led_offset = 0.0
 
 
     def _validate_palette(self, palette):
@@ -27,22 +29,31 @@ class Gradient(object):
             raise ValueError("Last point in palette must be greater than or equal to 1.0")
 
 
+    def set_scale(self, scale):
+        self.led_scale = scale
+
+
+    def set_offset(self, offset):
+        self.led_offset = offset
+
 
     def render(self, led_art, channel):
 
         for led in range(self.num_leds):
-            led_offset = float(led) / float(self.num_leds - 1)
+#            print("%.3f %.3f" % (self.led_offset, self.led_scale))
+            offset = (float(led) / float(self.num_leds - 1))
+            offset = fmod(offset + self.led_offset / self.led_scale, 1.0)
             for index in range(len(self.palette)):
 
                 # skip the first item
                 if index == 0:
                     continue
 
-                if self.palette[index][0] >= led_offset:
+                if self.palette[index][0] >= offset:
                     section_begin_offset = self.palette[index-1][0]
                     section_end_offset = self.palette[index][0]
 
-                    percent = (led_offset - section_begin_offset) / (section_end_offset - section_begin_offset)
+                    percent = (offset - section_begin_offset) / (section_end_offset - section_begin_offset)
                     new_color = []
                     for color in range(3):
                         new_color.append(int(self.palette[index-1][1][color] + 

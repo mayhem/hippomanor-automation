@@ -27,6 +27,27 @@ COLOR_TOPIC = "%s/color" % config.NODE_ID
 COLOR_STATE_TOPIC = "%s/color_state" % config.NODE_ID
 EFFECT_TOPIC = "%s/effect" % config.NODE_ID
 
+AUTODISCOVERY_TOPIC = "homeassistant/light/lips/light/config"
+
+AUTODISCOVERY_MSG = {
+    "brightness" : True,
+    "xy" : True,
+    "schema" : "json",
+    "command_topic" : "lips/set",
+    "state_topic" : "lips/state",
+    "json_attributes_topic" : "zigbee2mqtt/naam-van-lamp",
+    "name" : "lips",
+    "unique_id" : "0x0017xxxec5e_light_zigbee2mqtt",
+    "device" : {
+        "identifiers" : [ "zigbee2mqtt_0x0017xxxec5e" ],
+        "name" : "lips",
+        "sw_version" : "Zigbee2mqtt 1.11.0",
+        "model" : "Hue Bloom (7299760PH)",
+        "manufacturer" : "Philips"
+    },
+    "availability_topic" : "zigbee2mqtt/bridge/state"
+}
+
 CHANNEL_0     = 0
 CHANNEL_1     = 1
 CHANNEL_BOTH  = 2
@@ -88,10 +109,9 @@ class Lips(object):
     def set_state(self, state):
         self.state = state
         if state:
-            self.publish(STATE_TOPIC, "1")
-            self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % self.brightness)
+            self.publish(STATE_TOPIC, '{"state":"ON","brightness":%d}' % self.brightness)
         else:
-            self.publish(STATE_TOPIC, "0")
+            self.publish(STATE_TOPIC, '{"state":"OFF","brightness":0}')
 
 
     def fade_out(self, channel=CHANNEL_BOTH):
@@ -233,7 +253,10 @@ class Lips(object):
             self.current_effect.set_color(color)
             self.publish(COLOR_STATE_TOPIC, msg.payload)
             return
-           
+
+          
+    def send_autodiscovery(self):
+        self.publish(AUTODISCOVERY_TOPIC, json.dumps(AUTODISCOVERY_MSG))
 
 
     def setup(self):
@@ -255,6 +278,8 @@ class Lips(object):
         self.mqttc.subscribe(BRIGHTNESS_TOPIC)
         self.mqttc.subscribe(EFFECT_TOPIC)
         self.mqttc.subscribe(COLOR_TOPIC)
+
+        self.send_autodiscovery()
 
 
     def loop(self):

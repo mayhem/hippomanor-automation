@@ -99,6 +99,11 @@ class Lips(object):
 
     def turn_on(self):
         if self.brightness == 0:
+            while True:
+                if self.brightness + 10 > self.last_brightness:
+                    break
+                self.set_brightness(self.brightness + 10)
+
             self.set_brightness(self.last_brightness)
             print("turn on. brightness: %d" % self.brightness)
             self.publish(STATE_TOPIC, "1")
@@ -233,7 +238,6 @@ class Lips(object):
     def _handle_message(self, mqttc, msg):
 
         payload = str(msg.payload, 'utf-8')
-        print(msg.topic)
         if msg.topic == COMMAND_TOPIC:
             if msg.payload.lower() == b"mode":
                 self.next_effect()
@@ -337,6 +341,10 @@ class Lips(object):
     def loop(self):
         if self.current_effect and self.brightness:
             self.current_effect.loop()
+
+            # If we come out of an update loop and we got turned off, oops. clean up
+            if not self.brightness:
+                self.clear()
 
 
 if __name__ == "__main__":

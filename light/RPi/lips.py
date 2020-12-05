@@ -49,7 +49,7 @@ class Lips(object):
 
 
     def __init__(self):
-        self.brightness = INITIAL_BRIGHTNESS
+        self.brightness = 0
         self.last_brightness = INITIAL_BRIGHTNESS
         self.effect_list = []
         self.current_effect = None
@@ -99,11 +99,10 @@ class Lips(object):
 
     def turn_on(self):
         if self.brightness == 0:
-            print("read last brightness: %d" % (self.brightness))
-            self.brightness = self.last_brightness
+            print("read last brightness: %d" % (self.last_brightness))
+            self.set_brightness(self.last_brightness)
             print("turn on. brightness: %d" % self.brightness)
             self.publish(STATE_TOPIC, "1")
-            self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % self.brightness)
         else:
             print("already on")
 
@@ -121,7 +120,6 @@ class Lips(object):
 
             print("turn off.")
             self.publish(STATE_TOPIC, "0")
-            self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % self.brightness)
         else:
             print("already off")
 
@@ -136,6 +134,10 @@ class Lips(object):
         if self.brightness and brightness == 0:
             self.publish(STATE_TOPIC, "0")
 
+        if self.brightness == 0 and brightness:
+            self.publish(STATE_TOPIC, "1")
+
+        self.brightness = brightness
         if brightness:
             for strip in self.strips:
                 strip.setBrightness(brightness)
@@ -143,8 +145,8 @@ class Lips(object):
         else:
             self.clear()
 
-        self.brightness = brightness
         self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % brightness)
+        print("brightness %s" % self.brightness)
 
 
     def brightness_up(self):
@@ -165,11 +167,12 @@ class Lips(object):
 
         if self.brightness <= 10:
             print("set last brightness: %d" % (self.brightness))
-            self.last_brightness = self.brightness
+            self.last_brightness = 10
             self.set_brightness(0)
-            return
+            self.clear()
+        else:
+            self.set_brightness(self.brightness - 10)
 
-        self.set_brightness(self.brightness - 10)
         print("DOWN new brightness: %d" % self.brightness)
 
 
@@ -181,9 +184,6 @@ class Lips(object):
             self.set_brightness(self.brightness + brightness_inc)
 
         self.set_brightness(target_brightness)
-
-
-
 
     def set_effect(self, effect_name):
         for i, effect in enumerate(self.effect_list):
@@ -201,7 +201,9 @@ class Lips(object):
     def add_effect(self, effect):
         self.effect_list.append(effect)
         if len(self.effect_list) == 1:
-            self.set_effect(str(effect.name))
+            self.current_effect = effect 
+            self.current_effect.setup()
+            self.current_effect_index = 0
 
 
     def next_effect(self):
@@ -219,7 +221,6 @@ class Lips(object):
             self.show()
             sleep(.002)
 
-        self.turn_off()
         self.clear()
 
 
@@ -249,11 +250,11 @@ class Lips(object):
                 return
 
             if msg.payload.lower() == b"toggle":
-                if self.state:
+                if self.brightness:
                     self.turn_off()
                     return
                 else:
-                    self.fade_in()
+                    self.turn_on()
                     return
 
             return
@@ -287,6 +288,10 @@ class Lips(object):
                 self.turn_on()
                 return
 
+            if msg.payload.lower() == b"on-hold":
+                self.set_brightness(100)
+                return
+
             if msg.payload.lower() == b"off-press":
                 self.turn_off()
                 return
@@ -302,7 +307,7 @@ class Lips(object):
 
     def setup(self):
         #self.startup()
-        self.set_brightness(self.brightness)
+        self.clear()
 
         self.mqttc = mqtt.Client(CLIENT_ID)
         self.mqttc.on_message = Lips.on_message

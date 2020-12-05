@@ -27,9 +27,13 @@ COLOR_TOPIC = "%s/color" % config.NODE_ID
 COLOR_STATE_TOPIC = "%s/color_state" % config.NODE_ID
 EFFECT_TOPIC = "%s/effect" % config.NODE_ID
 
+# Philips dimmer that is connected via zigbee2mqtt
+DIMMER_TOPIC = "zigbee2mqtt/0x00178801080a1a7b/action"
+
 CHANNEL_0     = 0
 CHANNEL_1     = 1
 CHANNEL_BOTH  = 2
+INITIAL_BRIGHTNESS = 30
 
 from effect import solid_effect
 from effect import sparkle_effect
@@ -45,8 +49,8 @@ class Lips(object):
 
 
     def __init__(self):
-        self.state = False
-        self.brightness = 32
+        self.brightness = INITIAL_BRIGHTNESS
+        self.last_brightness = INITIAL_BRIGHTNESS
         self.effect_list = []
         self.current_effect = None
         self.current_effect_index = -1
@@ -57,6 +61,7 @@ class Lips(object):
             s.begin()
 
         self.mqttc = None
+
 
     def publish(self, topic, payload):
         if not self.mqttc:
@@ -80,28 +85,92 @@ class Lips(object):
             self.strips[1].setPixelColor(led, Color(col[1], col[0], col[2]))
 
 
+    def show(self, channel=CHANNEL_BOTH):
+        if channel == CHANNEL_0 or channel == CHANNEL_BOTH:
+            self.strips[0].show()
+        if channel == CHANNEL_1 or channel == CHANNEL_BOTH:
+            self.strips[1].show()
+
+
     def clear(self, channel=CHANNEL_BOTH):
         self.set_color((0,0,0), channel)
         self.show(channel)
 
 
-    def set_state(self, state):
-        self.state = state
-        if state:
+    def turn_on(self):
+        if self.brightness == 0:
+            print("read last brightness: %d" % (self.brightness))
+            self.brightness = self.last_brightness
+            print("turn on. brightness: %d" % self.brightness)
             self.publish(STATE_TOPIC, "1")
             self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % self.brightness)
         else:
+            print("already on")
+
+
+    def turn_off(self):
+        if self.brightness:
+            self.last_brightness = self.brightness
+            print("set last brightness: %d" % (self.brightness))
+            while self.brightness > 0:
+                self.set_brightness(self.brightness - 5)
+                print("off: %d" % self.brightness)
+
+            self.set_brightness(0)
+            self.clear()
+
+            print("turn off.")
+            self.publish(STATE_TOPIC, "0")
+            self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % self.brightness)
+        else:
+            print("already off")
+
+
+    def set_brightness(self, brightness):
+
+        if brightness < 0:
+            brightness = 0
+        elif brightness > 100:
+            brightness = 100
+
+        if self.brightness and brightness == 0:
             self.publish(STATE_TOPIC, "0")
 
+        if brightness:
+            for strip in self.strips:
+                strip.setBrightness(brightness)
+                strip.show()
+        else:
+            self.clear()
 
-    def fade_out(self, channel=CHANNEL_BOTH):
-        saved_brightness = self.brightness
-        while self.brightness > 0:
-            self.set_brightness(max(self.brightness - 10, 0))
-            self.show()
+        self.brightness = brightness
+        self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % brightness)
 
-        self.clear()
-        self.set_brightness(saved_brightness)
+
+    def brightness_up(self):
+        if self.brightness == 100:
+            return
+
+        if not self.brightness:
+            self.set_brightness(10)
+        else:
+            self.set_brightness(self.brightness + 10)
+
+        print("UP new brightness: %d" % self.brightness)
+
+
+    def brightness_down(self):
+        if not self.brightness:
+            return
+
+        if self.brightness <= 10:
+            print("set last brightness: %d" % (self.brightness))
+            self.last_brightness = self.brightness
+            self.set_brightness(0)
+            return
+
+        self.set_brightness(self.brightness - 10)
+        print("DOWN new brightness: %d" % self.brightness)
 
 
     def fade_in(self, target_brightness, channel=CHANNEL_BOTH):
@@ -110,36 +179,20 @@ class Lips(object):
         brightness_inc = 10
         while self.brightness + brightness_inc < target_brightness:
             self.set_brightness(self.brightness + brightness_inc)
-            self.show()
 
         self.set_brightness(target_brightness)
 
 
-    def show(self, channel=CHANNEL_BOTH):
-        if channel == CHANNEL_0 or channel == CHANNEL_BOTH:
-            self.strips[0].show()
-        if channel == CHANNEL_1 or channel == CHANNEL_BOTH:
-            self.strips[1].show()
-
-
-    def set_brightness(self, brightness):
-        self.brightness = brightness
-        for strip in self.strips:
-            strip.setBrightness(brightness)
-            strip.show()
-        self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % brightness)
 
 
     def set_effect(self, effect_name):
         for i, effect in enumerate(self.effect_list):
             if effect.name == effect_name:
-                saved_state = self.state
-                self.state = False
-                self.fade_out()
+                self.turn_off()
                 self.current_effect = effect 
                 self.current_effect.setup()
                 self.current_effect_index = i
-                self.state = saved_state
+                self.turn_on()
                 break
         else:
             print("Unknown effect %s" % effect_name)
@@ -166,7 +219,7 @@ class Lips(object):
             self.show()
             sleep(.002)
 
-        self.fade_out()
+        self.turn_off()
         self.clear()
 
 
@@ -188,27 +241,19 @@ class Lips(object):
                 return
 
             if msg.payload.lower() == b"on":
-                self.state = True
+                self.turn_on()
                 return
 
             if msg.payload.lower() == b"off":
-                self.state = False
-                saved = self.brightness
-                self.fade_out()
-                self.clear()
-                self.set_brightness(saved)
+                self.turn_off()
                 return
 
             if msg.payload.lower() == b"toggle":
                 if self.state:
-                    self.state = False
-                    saved = self.brightness
-                    self.fade_out()
-                    self.clear()
-                    self.set_brightness(saved)
+                    self.turn_off()
                     return
                 else:
-                    self.state = True
+                    self.fade_in()
                     return
 
             return
@@ -234,7 +279,26 @@ class Lips(object):
             self.publish(COLOR_STATE_TOPIC, msg.payload)
             return
            
+        if msg.topic == DIMMER_TOPIC:
+            action = str(msg.payload, 'utf-8')
+            print("===== %s" % action)
+            
+            if msg.payload.lower() == b"on-press":
+                self.turn_on()
+                return
 
+            if msg.payload.lower() == b"off-press":
+                self.turn_off()
+                return
+
+            if msg.payload.lower() == b"up-press":
+                self.brightness_up()
+                return
+
+            if msg.payload.lower() == b"down-press":
+                self.brightness_down()
+                return
+        
 
     def setup(self):
         #self.startup()
@@ -255,12 +319,12 @@ class Lips(object):
         self.mqttc.subscribe(BRIGHTNESS_TOPIC)
         self.mqttc.subscribe(EFFECT_TOPIC)
         self.mqttc.subscribe(COLOR_TOPIC)
+        self.mqttc.subscribe(DIMMER_TOPIC)
 
 
     def loop(self):
-        if self.current_effect and self.state:
+        if self.current_effect and self.brightness:
             self.current_effect.loop()
-
 
 
 if __name__ == "__main__":
@@ -275,11 +339,13 @@ if __name__ == "__main__":
     a.add_effect(bootie_call_effect.BootieCallEffect(a, .0005))
 
     a.setup()
-    a.set_state(config.TURN_ON_AT_START)
+    if config.TURN_ON_AT_START:
+        a.turn_on()
     try:
         while True:
             a.loop()
+            sleep(.0001)
     except KeyboardInterrupt:
-        a.fade_out()
+        a.turn_off()
         a.mqttc.disconnect()
         a.mqttc.loop_stop()

@@ -99,29 +99,22 @@ class Lips(object):
 
     def turn_on(self):
         if self.brightness == 0:
-            print("read last brightness: %d" % (self.last_brightness))
             self.set_brightness(self.last_brightness)
             print("turn on. brightness: %d" % self.brightness)
             self.publish(STATE_TOPIC, "1")
-        else:
-            print("already on")
 
 
     def turn_off(self):
         if self.brightness:
             self.last_brightness = self.brightness
-            print("set last brightness: %d" % (self.brightness))
             while self.brightness > 0:
                 self.set_brightness(self.brightness - 5)
-                print("off: %d" % self.brightness)
 
             self.set_brightness(0)
             self.clear()
 
             print("turn off.")
             self.publish(STATE_TOPIC, "0")
-        else:
-            print("already off")
 
 
     def set_brightness(self, brightness):
@@ -146,7 +139,6 @@ class Lips(object):
             self.clear()
 
         self.publish(BRIGHTNESS_STATE_TOPIC, "%d" % brightness)
-        print("brightness %s" % self.brightness)
 
 
     def brightness_up(self):
@@ -166,7 +158,6 @@ class Lips(object):
             return
 
         if self.brightness <= 10:
-            print("set last brightness: %d" % (self.brightness))
             self.last_brightness = 10
             self.set_brightness(0)
             self.clear()
@@ -207,8 +198,15 @@ class Lips(object):
 
 
     def next_effect(self):
-        index = (self.current_effect_index + 1) % len(self.effect_list)
-        self.set_effect(str(self.effect_list[index].name))
+        if self.brightness:
+            index = (self.current_effect_index + 1) % len(self.effect_list)
+            self.set_effect(str(self.effect_list[index].name))
+
+
+    def previous_effect(self):
+        if self.brightness:
+            index = (self.current_effect_index + len(self.effect_list) - 1) % len(self.effect_list)
+            self.set_effect(str(self.effect_list[index].name))
 
 
     def startup(self):
@@ -289,7 +287,8 @@ class Lips(object):
                 return
 
             if msg.payload.lower() == b"on-hold":
-                self.set_brightness(100)
+                while self.brightness < 100:
+                    self.set_brightness(self.brightness + 10)
                 return
 
             if msg.payload.lower() == b"off-press":
@@ -302,6 +301,14 @@ class Lips(object):
 
             if msg.payload.lower() == b"down-press":
                 self.brightness_down()
+                return
+
+            if msg.payload.lower() == b"up-hold":
+                self.next_effect()
+                return
+
+            if msg.payload.lower() == b"down-hold":
+                self.previous_effect()
                 return
         
 

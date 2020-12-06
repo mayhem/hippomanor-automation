@@ -214,6 +214,11 @@ class Lips(object):
             self.set_effect(str(self.effect_list[index].name))
 
 
+    def nudge_effect(self):
+        if self.brightness and self.current_effect:
+            print("nudge effect")
+            self.current_effect.nudge()
+
     def startup(self):
 
         colors = ( (128, 0, 128), (128, 30, 0) )
@@ -314,6 +319,10 @@ class Lips(object):
             if msg.payload.lower() == b"down-hold":
                 self.previous_effect()
                 return
+
+            if msg.payload.lower() == b"off-hold":
+                self.nudge_effect()
+                return
         
 
     def setup(self):
@@ -350,13 +359,13 @@ class Lips(object):
 if __name__ == "__main__":
     seed()
     a = Lips()
-    a.add_effect(test_effect.TestEffect(a))
     a.add_effect(chill_bed_time_effect.ChillBedTimeEffect(a))
-    a.add_effect(dynamic_colorcycle_effect.DynamicColorCycleEffect(a))
-    a.add_effect(solid_effect.SolidEffect(a))
     a.add_effect(sparkle_effect.SparkleEffect(a))
+    a.add_effect(solid_effect.SolidEffect(a))
+    a.add_effect(dynamic_colorcycle_effect.DynamicColorCycleEffect(a))
     a.add_effect(undulating_effect.UndulatingEffect(a))
     a.add_effect(bootie_call_effect.BootieCallEffect(a, .0005))
+    a.add_effect(test_effect.TestEffect(a))
 
     a.setup()
     if config.TURN_ON_AT_START:

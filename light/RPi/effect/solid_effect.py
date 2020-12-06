@@ -1,3 +1,6 @@
+from math import fmod
+from random import random
+import palette
 import effect
 
 
@@ -7,24 +10,16 @@ class SolidEffect(effect.Effect):
 
     def __init__(self, led_art):
         effect.Effect.__init__(self, led_art, self.NAME)
-        self.color = (255, 255, 255)
-        self.done = False
+        self.hue = random()
+        self.nudge()
 
-
-    def setup(self):
-        self.done = False
-
+    def nudge(self):
+        self.hue += fmod(.1 + (random() * .1), 1.0)
+        self.color = palette.make_hsv(self.hue)
 
     def set_color(self, color):
-        pass
-
         self.color = color
-        self.done = False
-
 
     def loop(self):
-        if not self.done:
-            self.led_art.set_color(self.color)
-            self.led_art.show()
-
-        self.done = True
+        self.led_art.set_color(self.color)
+        self.led_art.show()

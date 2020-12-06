@@ -20,6 +20,10 @@ class Effect(object):
         pass
 
     @abc.abstractmethod
+    def nudge(self):
+        pass
+
+    @abc.abstractmethod
     def loop(self):
         pass
 

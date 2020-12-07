@@ -5,9 +5,7 @@ from neopixel import Color
 
 class Gradient(object):
 
-    def __init__(self, num_leds, palette):
-
-        self.FENCEPOST_TOLERANCE = .0001
+    def __init__(self, palette, num_leds = 1):
 
         # palletes are in format [ (.345, (128, 0, 128)) ]
         self._validate_palette(palette)
@@ -37,28 +35,37 @@ class Gradient(object):
         self.led_offset = offset
 
 
+    def get_color_by_offset(self, offset):
+
+        if offset < 0.0 or offset > 1.0:
+            raise IndexError("Invalid offset.")
+
+        for index in range(len(self.palette)):
+
+            # skip the first item
+            if index == 0:
+                continue
+
+            if self.palette[index][0] >= offset:
+                section_begin_offset = self.palette[index-1][0]
+                section_end_offset = self.palette[index][0]
+
+                percent = (offset - section_begin_offset) / (section_end_offset - section_begin_offset)
+                new_color = []
+                for color in range(3):
+                    new_color.append(int(self.palette[index-1][1][color] + 
+                            ((self.palette[index][1][color] - self.palette[index-1][1][color]) * percent)))
+
+                return (min(new_color[0], 255), min(new_color[1], 255), min(new_color[2], 255))
+
+        assert False
+
+
     def render(self, led_art, channel):
 
         for led in range(self.num_leds):
-#            print("%.3f %.3f" % (self.led_offset, self.led_scale))
             offset = (float(led) / float(self.num_leds - 1))
             offset = fmod(offset + self.led_offset / self.led_scale, 1.0)
-            for index in range(len(self.palette)):
 
-                # skip the first item
-                if index == 0:
-                    continue
-
-                if self.palette[index][0] >= offset:
-                    section_begin_offset = self.palette[index-1][0]
-                    section_end_offset = self.palette[index][0]
-
-                    percent = (offset - section_begin_offset) / (section_end_offset - section_begin_offset)
-                    new_color = []
-                    for color in range(3):
-                        new_color.append(int(self.palette[index-1][1][color] + 
-                                ((self.palette[index][1][color] - self.palette[index-1][1][color]) * percent)))
-
-                    led_art.set_led_color(led, (min(new_color[0], 255), min(new_color[1], 255), min(new_color[2], 255)), channel)
-                    break
-
+            color = self.get_color_by_offset(offset)
+            led_art.set_led_color(led, color, channel)

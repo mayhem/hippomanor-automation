@@ -24,6 +24,10 @@ class Effect(object):
         pass
 
     @abc.abstractmethod
+    def reset(self):
+        pass
+
+    @abc.abstractmethod
     def loop(self):
         pass
 

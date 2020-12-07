@@ -44,7 +44,7 @@ class TestEffect(effect.Effect):
     def loop(self):
 
         try:
-            g = gradient.Gradient(config.NUM_LEDS, self.palette)
+            g = gradient.Gradient(self.palette, config.NUM_LEDS)
             g.set_scale(self.scale)
             g.set_offset(self.offset)
             g.render(self.led_art, 2) 

@@ -40,7 +40,7 @@ class ChillBedTimeEffect(effect.Effect):
               (0.65 + jitter, self.colors[1]),
               (1.0, self.colors[0])
         ]
-        g = gradient.Gradient(config.NUM_LEDS, p)
+        g = gradient.Gradient(p, config.NUM_LEDS)
         g.render(self.led_art, CHANNEL_BOTH)
 
         self.led_art.show()

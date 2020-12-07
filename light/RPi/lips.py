@@ -35,6 +35,7 @@ CHANNEL_1     = 1
 CHANNEL_BOTH  = 2
 INITIAL_BRIGHTNESS = 30
 
+from effect import color_amble_effect
 from effect import solid_effect
 from effect import sparkle_effect
 from effect import undulating_effect
@@ -106,7 +107,6 @@ class Lips(object):
 
             self.set_brightness(self.last_brightness)
             print("turn on. brightness: %d" % self.brightness)
-            self.publish(STATE_TOPIC, "1")
 
 
     def turn_off(self):
@@ -116,10 +116,7 @@ class Lips(object):
                 self.set_brightness(self.brightness - 5)
 
             self.set_brightness(0)
-            self.clear()
-
             print("turn off.")
-            self.publish(STATE_TOPIC, "0")
 
 
     def set_brightness(self, brightness):
@@ -130,6 +127,8 @@ class Lips(object):
             brightness = 100
 
         if self.brightness and brightness == 0:
+            if self.current_effect:
+                self.current_effect.reset()
             self.publish(STATE_TOPIC, "0")
 
         if self.brightness == 0 and brightness:
@@ -359,9 +358,10 @@ class Lips(object):
 if __name__ == "__main__":
     seed()
     a = Lips()
+    a.add_effect(color_amble_effect.ColorAmbleEffect(a))
+    a.add_effect(solid_effect.SolidEffect(a))
     a.add_effect(chill_bed_time_effect.ChillBedTimeEffect(a))
     a.add_effect(sparkle_effect.SparkleEffect(a))
-    a.add_effect(solid_effect.SolidEffect(a))
     a.add_effect(dynamic_colorcycle_effect.DynamicColorCycleEffect(a))
     a.add_effect(undulating_effect.UndulatingEffect(a))
     a.add_effect(bootie_call_effect.BootieCallEffect(a, .0005))

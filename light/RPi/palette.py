@@ -2,6 +2,8 @@ from colorsys import hsv_to_rgb, rgb_to_hsv
 from random import randint, random, uniform
 from math import fmod
 
+from gradient import Gradient
+
 
 def make_hsv(hue, saturation = 1.0, value = 1.0):
     (red, green, blue) = hsv_to_rgb(hue, saturation, value)
@@ -54,3 +56,14 @@ def create_random_palette():
     palette_funcs = (create_analogous_palette, create_triad_palette, create_analogous_palette)
 
     return palette_funcs[randint(0, len(palette_funcs) - 1)]()
+
+
+class ColorSchemePalette():
+
+    def __init__(self, color_list):
+        dist = 1.0 / (len(color_list) - 1)
+        palette = [(i * dist, color) for i, color in enumerate(color_list)]
+        self.gradient = Gradient(palette)
+
+    def color(self, index):
+        return self.gradient.get_color_by_offset(index)

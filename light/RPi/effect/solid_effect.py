@@ -10,12 +10,13 @@ class SolidEffect(effect.Effect):
 
     def __init__(self, led_art):
         effect.Effect.__init__(self, led_art, self.NAME)
+        self.palette = palette.ColorSchemePalette([(255, 0, 0), (255, 160, 0), (255, 255, 0), (255, 0, 255)])
         self.hue = random()
         self.nudge()
 
     def nudge(self):
-        self.hue += fmod(.1 + (random() * .1), 1.0)
-        self.color = palette.make_hsv(self.hue)
+        self.hue = fmod(self.hue + .1 + (random() * .05), 1.0)
+        self.color = self.palette.color(self.hue)
 
     def set_color(self, color):
         self.color = color

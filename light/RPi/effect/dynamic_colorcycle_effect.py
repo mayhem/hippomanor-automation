@@ -69,7 +69,7 @@ class DynamicColorCycleEffect(effect.Effect):
     def loop(self):
 
         try:
-            g = gradient.Gradient(config.NUM_LEDS, self.palette)
+            g = gradient.Gradient(self.palette, config.NUM_LEDS)
             g.render(self.led_art, 2) 
             self.led_art.show()
         except ValueError as err:

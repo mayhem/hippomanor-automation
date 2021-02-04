@@ -312,15 +312,25 @@ class Lips(object):
                                 self.current_effect = effect 
                                 self.current_effect.setup()
                                 self.current_effect_index = i
-                                effect.set_color((255, 255, 255))
+                                effect.set_color((255, 180, 59))
                                 self.set_brightness(100)
                                 break
 
                     return
 
                 if msg.payload.lower() == b"on-hold":
-                    while self.brightness < 100:
-                        self.set_brightness(self.brightness + 10)
+                    if dimmer["name"] == "bed": 
+                        while self.brightness < 100:
+                            self.set_brightness(self.brightness + 10)
+                    else:
+                        for i, effect in enumerate(self.effect_list):
+                            if effect.name == "bedtime":
+                                self.turn_off()
+                                self.current_effect = effect 
+                                self.current_effect.setup()
+                                self.current_effect_index = i
+                                self.set_brightness(50)
+                                break
                     return
 
                 if msg.payload.lower() == b"off-press":
@@ -344,7 +354,17 @@ class Lips(object):
                     return
 
                 if msg.payload.lower() == b"off-hold":
-                    self.nudge_effect()
+                    if dimmer["name"] == "bed": 
+                        self.nudge_effect()
+                    else:
+                        for i, effect in enumerate(self.effect_list):
+                            if effect.name == "bedtime":
+                                self.turn_off()
+                                self.current_effect = effect 
+                                self.current_effect.setup()
+                                self.current_effect_index = i
+                                self.set_brightness(5)
+                                break
                     return
         
 

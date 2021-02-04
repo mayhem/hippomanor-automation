@@ -28,7 +28,16 @@ COLOR_STATE_TOPIC = "%s/color_state" % config.NODE_ID
 EFFECT_TOPIC = "%s/effect" % config.NODE_ID
 
 # Philips dimmer that is connected via zigbee2mqtt
-DIMMER_TOPIC = "zigbee2mqtt/0x00178801080a1a7b/action"
+DIMMERS = [ 
+    { 
+      "topic" : "zigbee2mqtt/0x00178801080a1a7b/action",
+      "name" : "bed"
+    },
+    { 
+      "topic" : "zigbee2mqtt/0x0017880108f2bc2c/action",
+      "name" : "wall"
+    }
+]
 
 CHANNEL_0     = 0
 CHANNEL_1     = 1
@@ -97,7 +106,7 @@ class Lips(object):
         self.set_color((0,0,0), channel)
         self.show(channel)
 
-
+    
     def turn_on(self):
         if self.brightness == 0:
             while True:
@@ -180,7 +189,9 @@ class Lips(object):
 
         self.set_brightness(target_brightness)
 
+
     def set_effect(self, effect_name):
+        print("effect: %s" % effect_name)
         for i, effect in enumerate(self.effect_list):
             if effect.name == effect_name:
                 self.turn_off()
@@ -286,42 +297,55 @@ class Lips(object):
             self.publish(COLOR_STATE_TOPIC, msg.payload)
             return
            
-        if msg.topic == DIMMER_TOPIC:
-            action = str(msg.payload, 'utf-8')
-            print("===== %s" % action)
-            
-            if msg.payload.lower() == b"on-press":
-                self.turn_on()
-                return
+        for dimmer in DIMMERS:
+            if msg.topic == dimmer["topic"]:
+                action = str(msg.payload, 'utf-8')
+                print("===== %s" % action)
+                
+                if msg.payload.lower() == b"on-press":
+                    if dimmer["name"] == "bed": 
+                        self.turn_on()
+                    else:
+                        for i, effect in enumerate(self.effect_list):
+                            if effect.name == "solid":
+                                self.turn_off()
+                                self.current_effect = effect 
+                                self.current_effect.setup()
+                                self.current_effect_index = i
+                                effect.set_color((255, 255, 255))
+                                self.set_brightness(100)
+                                break
 
-            if msg.payload.lower() == b"on-hold":
-                while self.brightness < 100:
-                    self.set_brightness(self.brightness + 10)
-                return
+                    return
 
-            if msg.payload.lower() == b"off-press":
-                self.turn_off()
-                return
+                if msg.payload.lower() == b"on-hold":
+                    while self.brightness < 100:
+                        self.set_brightness(self.brightness + 10)
+                    return
 
-            if msg.payload.lower() == b"up-press":
-                self.brightness_up()
-                return
+                if msg.payload.lower() == b"off-press":
+                    self.turn_off()
+                    return
 
-            if msg.payload.lower() == b"down-press":
-                self.brightness_down()
-                return
+                if msg.payload.lower() == b"up-press":
+                    self.brightness_up()
+                    return
 
-            if msg.payload.lower() == b"up-hold":
-                self.next_effect()
-                return
+                if msg.payload.lower() == b"down-press":
+                    self.brightness_down()
+                    return
 
-            if msg.payload.lower() == b"down-hold":
-                self.previous_effect()
-                return
+                if msg.payload.lower() == b"up-hold":
+                    self.next_effect()
+                    return
 
-            if msg.payload.lower() == b"off-hold":
-                self.nudge_effect()
-                return
+                if msg.payload.lower() == b"down-hold":
+                    self.previous_effect()
+                    return
+
+                if msg.payload.lower() == b"off-hold":
+                    self.nudge_effect()
+                    return
         
 
     def setup(self):
@@ -343,7 +367,8 @@ class Lips(object):
         self.mqttc.subscribe(BRIGHTNESS_TOPIC)
         self.mqttc.subscribe(EFFECT_TOPIC)
         self.mqttc.subscribe(COLOR_TOPIC)
-        self.mqttc.subscribe(DIMMER_TOPIC)
+        for dimmer in DIMMERS:
+            self.mqttc.subscribe(dimmer["topic"])
 
 
     def loop(self):

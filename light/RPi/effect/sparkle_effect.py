@@ -1,4 +1,5 @@
 from neopixel import Color
+from colorsys import rgb_to_hsv
 from time import sleep
 import config
 from random import random, randint
@@ -15,20 +16,22 @@ class SparkleEffect(effect.Effect):
         effect.Effect.__init__(self, led_art, self.NAME)
         self.FADE_CONSTANT = .85
         self.DOTS = 20
-        self.hue = random()
+        self.setup()
 
     def setup(self):
+        self.hue = random()
         self.pal = self.create_analogous_palette()
 
     def set_color(self, color):
-        pass
+        self.hue, _, _ = rgb_to_hsv(color[0] / 255.0, color[1] / 255.0, color[2] / 255.0)
+        self.pal = self.create_analogous_palette()
 
     def nudge(self):
         self.hue += .1 + (random() * .1)
         self.pal = self.create_analogous_palette()
 
     def create_analogous_palette(self):
-        jitter = .01 + (random() / 64) 
+        jitter = .005 + (random() / 64) 
         return (palette.make_hsv(self.hue),
                 palette.make_hsv(fmod(self.hue - jitter + 1.0, 1.0)),
                 palette.make_hsv(fmod(self.hue - (jitter * 2) + 1.0, 1.0)),
@@ -50,3 +53,4 @@ class SparkleEffect(effect.Effect):
 
         self.led_art.show()
         sleep(.3)
+        self.hue += fmod(self.hue + .01, 1.0)

@@ -1,4 +1,5 @@
 from math import pi, sin
+from copy import copy
 from colorsys import hsv_to_rgb, rgb_to_hsv, rgb_to_hsv
 
 import config
@@ -7,6 +8,7 @@ import palette
 import effect
 from lips import CHANNEL_0, CHANNEL_1, CHANNEL_BOTH
 
+DEFAULT_COLORS = [(255, 0, 0), (210, 70, 0)]
 
 class ChillBedTimeEffect(effect.Effect):
 
@@ -14,15 +16,16 @@ class ChillBedTimeEffect(effect.Effect):
 
     def __init__(self, led_art):
         effect.Effect.__init__(self, led_art, self.NAME)
-        self.colors = [(255, 0, 0), (210, 70, 0)]
-
 
     def setup(self):
+        self.colors = copy(DEFAULT_COLORS)
         self.color_index = 0
         self.uoap_index = 0
         self.uaop_steps = 40
         self.uoap_increment = 1.0 / self.uaop_steps 
 
+    def reset(self):
+        pass
 
     def set_color(self, color):
         if color in self.colors:

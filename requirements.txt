@@ -1,6 +1,6 @@
 pyserial==3.4
 pyudev==0.21.0
-requests==2.20.1
+requests==2.31.0
 rshell==0.0.16
 esptool==2.5.1
 paho-mqtt==1.4.0
